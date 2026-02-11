@@ -1,51 +1,160 @@
-## 📰 Multi-Agent AI Researcher
+# 🤖 Multi-Agent AI Researcher
 
-### 🎓 FREE Step-by-Step Tutorial 
-**👉 [Click here to follow our complete step-by-step tutorial](https://www.theunwindai.com/p/build-a-multi-agent-llm-app-with-gpt-4o) and learn how to build this from scratch with detailed code walkthroughs, explanations, and best practices.**
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B.svg)](https://streamlit.io/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991.svg)](https://openai.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-This Streamlit app empowers you to research top stories and users on HackerNews using a team of AI assistants with GPT-4o. 
+An intelligent multi-agent system that leverages GPT-4o to autonomously research, analyze, and synthesize information from HackerNews and the web. Built with modern AI orchestration frameworks and designed for scalable, collaborative agent workflows.
 
-### Features
-- Research top stories and users on HackerNews
-- Utilize a team of AI assistants specialized in story and user research
-- Generate blog posts, reports, and social media content based on your research queries
+## 🎯 Overview
 
-### How to get Started?
+This project demonstrates advanced AI agent orchestration by implementing a coordinated team of specialized agents that work together to conduct comprehensive research. The system showcases practical applications of Large Language Models (LLMs) in automated content research and generation.
 
-1. Clone the GitHub repository
+**Key Highlights:**
+- Multi-agent architecture with role-based specialization
+- Real-time web scraping and content extraction
+- Intelligent workflow orchestration and task delegation
+- Production-ready Streamlit interface
 
-```bash
-git clone https://github.com/Shubhamsaboo/awesome-llm-apps.git
-cd advanced_ai_agents/multi_agent_apps/multi_agent_researcher
+## ✨ Features
+
+- **🔍 Autonomous Research**: Automatically discovers and analyzes trending HackerNews stories
+- **🤝 Collaborative Agents**: Three specialized AI agents work in concert to gather and synthesize information
+- **🌐 Web Intelligence**: Integrates DuckDuckGo search and article extraction for comprehensive coverage
+- **📊 Structured Outputs**: Generates well-formatted reports with citations and references
+- **⚡ Real-Time Processing**: Stream-capable architecture for responsive user experience
+
+## 🏗️ Architecture
+
+The system employs a hierarchical multi-agent architecture:
+
 ```
-2. Install the required dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-3. Get your OpenAI API Key
-
-- Sign up for an [OpenAI account](https://platform.openai.com/) (or the LLM provider of your choice) and obtain your API key.
-
-4. Run the Streamlit App
-```bash
-streamlit run research_agent.py
+┌─────────────────────────────────────┐
+│      HackerNews Team (Orchestrator)  │
+└──────────────┬──────────────────────┘
+               │
+       ┌───────┴────────┬────────────────┐
+       │                │                 │
+┌──────▼──────┐  ┌─────▼──────┐  ┌──────▼──────┐
+│ HackerNews  │  │    Web     │  │   Article   │
+│ Researcher  │  │  Searcher  │  │   Reader    │
+└─────────────┘  └────────────┘  └─────────────┘
 ```
 
-### How it works?
+### Agent Roles
 
-- Upon running the app, you will be prompted to enter your OpenAI API key. This key is used to authenticate and access the OpenAI language models.
-- Once you provide a valid API key, three specialized AI agents are created:
-    - **HackerNews Researcher**: Specializes in getting top stories from HackerNews using the HackerNews API.
-    - **Web Searcher**: Searches the web for additional information on topics using DuckDuckGo search.
-    - **Article Reader**: Reads and extracts content from article URLs using newspaper4k tools.
+| Agent | Responsibility | Technology |
+|-------|---------------|------------|
+| **HackerNews Researcher** | Fetches top stories and trending content | HackerNews API |
+| **Web Searcher** | Discovers additional context and related information | DuckDuckGo API |
+| **Article Reader** | Extracts and parses full article content | Newspaper4k |
+| **Team Orchestrator** | Coordinates agent workflows and synthesizes findings | GPT-4o |
 
-- These agents work together as a coordinated team under the **HackerNews Team** which orchestrates the research process.
-- Enter your research query in the provided text input field. This could be a topic, keyword, or specific question related to HackerNews stories or users.
-- The HackerNews Team follows a structured workflow:
-    1. First searches HackerNews for relevant stories based on your query
-    2. Uses the Article Reader to extract detailed content from the story URLs
-    3. Leverages the Web Searcher to gather additional context and information
-    4. Finally provides a thoughtful and engaging summary with title, summary, and reference links
-- The generated content is structured as an Article with a title, summary, and reference links for easy review and use.
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.8 or higher
+- OpenAI API key ([Get one here](https://platform.openai.com/))
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Shreyanshsaboo/multi-agent-researcher.git
+   cd multi-agent-researcher
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Launch the application**
+   ```bash
+   streamlit run research_agent.py
+   ```
+
+4. **Enter your OpenAI API key** in the application interface
+
+5. **Start researching!** Enter any query related to HackerNews content or tech trends
+
+## 💡 Usage Examples
+
+**Sample Queries:**
+- "Summarize the top AI and machine learning stories from HackerNews today"
+- "Find recent discussions about large language models"
+- "Research trending startups mentioned on HackerNews this week"
+- "Analyze the most popular programming language discussions"
+
+## 🛠️ Technical Stack
+
+- **Framework**: [Streamlit](https://streamlit.io/) - Interactive web application framework
+- **LLM**: [OpenAI GPT-4o-mini](https://openai.com/) - Language model for agent intelligence
+- **Agent Framework**: [Agno](https://github.com/agno-agi/agno) - Multi-agent orchestration
+- **APIs & Tools**:
+  - HackerNews API - Story and user data
+  - DuckDuckGo Search - Web search capabilities
+  - Newspaper4k - Article extraction and parsing
+
+## 📋 System Workflow
+
+1. **Query Reception**: User submits research query through Streamlit interface
+2. **Story Discovery**: HackerNews Researcher fetches relevant stories
+3. **Content Extraction**: Article Reader processes URLs and extracts full content
+4. **Context Enhancement**: Web Searcher gathers supplementary information
+5. **Synthesis**: Team Orchestrator compiles comprehensive report with citations
+6. **Output**: Structured markdown report delivered to user
+
+## 🔧 Configuration
+
+The system uses GPT-4o-mini for cost-effective operations. To use different models:
+
+```python
+model=OpenAIChat(id="gpt-4o")  # For enhanced performance
+```
+
+## 🌟 Key Learnings & Skills Demonstrated
+
+- **AI/ML Engineering**: Multi-agent system design and implementation
+- **Software Architecture**: Modular, scalable agent-based architecture
+- **API Integration**: Seamless integration of multiple external APIs
+- **Python Development**: Clean, maintainable code following best practices
+- **UI/UX Design**: User-friendly interface with Streamlit
+- **Prompt Engineering**: Effective agent instruction design for optimal outputs
+
+## 🔮 Future Enhancements
+
+- [ ] Add support for multiple LLM providers (Anthropic, Google, etc.)
+- [ ] Implement caching layer for improved performance
+- [ ] Add export functionality (PDF, JSON, Markdown)
+- [ ] Integrate vector database for semantic search
+- [ ] Deploy as containerized application (Docker)
+- [ ] Add user authentication and session management
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to check the issues page.
+
+## 👨‍💻 Author
+
+**Shreyansh Saboo**
+
+- GitHub: [@Shreyanshsaboo](https://github.com/Shreyanshsaboo)
+
+## 🙏 Acknowledgments
+
+- OpenAI for GPT-4o API
+- Streamlit for the amazing framework
+- HackerNews for the API access
+- The open-source community
+
+---
+
+⭐ **If you find this project useful, please consider giving it a star!**
 
