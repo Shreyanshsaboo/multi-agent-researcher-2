@@ -176,15 +176,15 @@ No key required. Make sure the Ollama daemon is running first.
 
 ## Configuration
 
-The model is set per agent at construction time. To trade cost for capability in the hosted variant:
+Each variant defines its model in one place, at the top of the file. To trade cost for capability in the hosted variant:
 
 ```python
-model=OpenAIChat(id="gpt-4o")
+MODEL_ID = "gpt-4o"
 ```
 
 Agents run with `debug_mode=True` and `show_members_responses=True`, which surfaces each member's intermediate output. Both are useful while tracing a delegation path and should be turned off for a clean end-user report.
 
-The orchestrator's `instructions` list is the workflow definition. Changing the order of those lines changes the pipeline, which is the fastest way to experiment with a different research strategy.
+`TEAM_INSTRUCTIONS` is the workflow definition. Changing the order of those lines changes the pipeline, which is the fastest way to experiment with a different research strategy.
 
 ## Project structure
 
