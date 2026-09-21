@@ -1,160 +1,217 @@
-# 🤖 Multi-Agent AI Researcher
+# Multi-Agent AI Researcher
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B.svg)](https://streamlit.io/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991.svg)](https://openai.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+A Streamlit application that coordinates a team of specialized LLM agents to research a topic on HackerNews, read the underlying articles, enrich them with web search, and return a single cited report.
 
-An intelligent multi-agent system that leverages GPT-4o to autonomously research, analyze, and synthesize information from HackerNews and the web. Built with modern AI orchestration frameworks and designed for scalable, collaborative agent workflows.
+I built this to explore how far task decomposition gets you in practice. A single agent given search, extraction, and synthesis responsibilities all at once tends to drop steps or hallucinate sources. Here each capability lives in its own narrowly scoped agent with exactly one tool, and an orchestrator decides who runs, in what order, and how to merge the results.
 
-## 🎯 Overview
+The project ships in two variants: a hosted version backed by the OpenAI API, and a fully local version backed by Ollama.
 
-This project demonstrates advanced AI agent orchestration by implementing a coordinated team of specialized agents that work together to conduct comprehensive research. The system showcases practical applications of Large Language Models (LLMs) in automated content research and generation.
+## Contents
 
-**Key Highlights:**
-- Multi-agent architecture with role-based specialization
-- Real-time web scraping and content extraction
-- Intelligent workflow orchestration and task delegation
-- Production-ready Streamlit interface
+- [System architecture](#system-architecture)
+- [Request lifecycle](#request-lifecycle)
+- [Design decisions](#design-decisions)
+- [Variants](#variants)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Project structure](#project-structure)
+- [Roadmap](#roadmap)
 
-## ✨ Features
+## System architecture
 
-- **🔍 Autonomous Research**: Automatically discovers and analyzes trending HackerNews stories
-- **🤝 Collaborative Agents**: Three specialized AI agents work in concert to gather and synthesize information
-- **🌐 Web Intelligence**: Integrates DuckDuckGo search and article extraction for comprehensive coverage
-- **📊 Structured Outputs**: Generates well-formatted reports with citations and references
-- **⚡ Real-Time Processing**: Stream-capable architecture for responsive user experience
-
-## 🏗️ Architecture
-
-The system employs a hierarchical multi-agent architecture:
+The system is four layers: a thin presentation layer, a coordination layer that owns the workflow, a set of stateless worker agents, and the external services those workers reach through tools.
 
 ```
-┌─────────────────────────────────────┐
-│      HackerNews Team (Orchestrator)  │
-└──────────────┬──────────────────────┘
-               │
-       ┌───────┴────────┬────────────────┐
-       │                │                 │
-┌──────▼──────┐  ┌─────▼──────┐  ┌──────▼──────┐
-│ HackerNews  │  │    Web     │  │   Article   │
-│ Researcher  │  │  Searcher  │  │   Reader    │
-└─────────────┘  └────────────┘  └─────────────┘
++----------------------------------------------------------------------+
+| PRESENTATION                                                         |
+|                                                                      |
+| Streamlit UI                                                         |
+| query input  ->  rendered markdown report                            |
++----------------------------------------------------------------------+
+                                   |  query string
+                                   v
++----------------------------------------------------------------------+
+| COORDINATION                                                         |
+|                                                                      |
+| HackerNews Team  (Agno Team, orchestrator)                           |
+|   holds the workflow instructions                                    |
+|   selects the member agent for each step                             |
+|   passes artifacts between steps                                     |
+|   synthesizes the final report                                       |
++----------------------------------------------------------------------+
+         | delegate                | delegate                | delegate
+         v                         v                         v
++------------------+      +------------------+      +------------------+
+| AGENT LAYER      |      |                  |      |                  |
+|                  |      |                  |      |                  |
+| HackerNews       |      | Article Reader   |      | Web Searcher     |
+| Researcher       |      |                  |      |                  |
+|                  |      | extracts full    |      | broadens         |
+| finds stories    |      | text from a URL  |      | context off HN   |
++------------------+      +------------------+      +------------------+
+         | tool call               | tool call               | tool call
+         v                         v                         v
++------------------+      +------------------+      +------------------+
+| TOOL LAYER       |      |                  |      |                  |
+|                  |      |                  |      |                  |
+| HackerNewsTools  |      | Newspaper4kTools |      | DuckDuckGoTools  |
++------------------+      +------------------+      +------------------+
+         |                         |                         |
+         v                         v                         v
++------------------+      +------------------+      +------------------+
+| EXTERNAL         |      |                  |      |                  |
+|                  |      |                  |      |                  |
+| HackerNews API   |      | Article hosts    |      | DuckDuckGo       |
+| (Firebase)       |      | (HTTP + parse)   |      | search index     |
++------------------+      +------------------+      +------------------+
+
+Inference backend, shared by the team and every member agent:
+    OpenAIChat gpt-4o-mini        or        Ollama llama3.2
 ```
 
-### Agent Roles
+The orchestrator is the only component that knows the full task. Member agents receive a delegated subtask and have no knowledge of each other, which keeps their prompts short and their tool selection unambiguous. Agents hold no state between steps; anything a downstream agent needs is passed to it explicitly by the orchestrator.
 
-| Agent | Responsibility | Technology |
-|-------|---------------|------------|
-| **HackerNews Researcher** | Fetches top stories and trending content | HackerNews API |
-| **Web Searcher** | Discovers additional context and related information | DuckDuckGo API |
-| **Article Reader** | Extracts and parses full article content | Newspaper4k |
-| **Team Orchestrator** | Coordinates agent workflows and synthesizes findings | GPT-4o |
+### Components
 
-## 🚀 Quick Start
+| Component | Responsibility | Tool | State |
+|---|---|---|---|
+| HackerNews Team | Plans the workflow, delegates, merges member output into the final report | none | Owns run context |
+| HackerNews Researcher | Retrieves top and topic-relevant stories with their URLs | `HackerNewsTools` | Stateless |
+| Article Reader | Fetches and parses full article text behind a URL | `Newspaper4kTools` | Stateless |
+| Web Searcher | Gathers supplementary context outside HackerNews | `DuckDuckGoTools` | Stateless, date-aware |
 
-### Prerequisites
+## Request lifecycle
 
-- Python 3.8 or higher
-- OpenAI API key ([Get one here](https://platform.openai.com/))
+```
+User            Streamlit             Team              HN Researcher          Article Reader           Web Searcher
+  |                 |                   |                     |                       |                       |
+  |-- query -------->                   |                     |                       |                       |
+  |                 |-- team.run() ----->                     |                       |                       |
+  |                 |                   |                     |                       |                       |
+  |                 |                   |-- find stories ----->                       |                       |
+  |                 |                   <-- titles + URLs ----|                       |                       |
+  |                 |                   |                     |                       |                       |
+  |                 |                   |-- read these URLs -------------------------->                       |
+  |                 |                   <-- full article text ------------------------|                       |
+  |                 |                   |                     |                       |                       |
+  |                 |                   |-- context per story ------------------------------------------------>
+  |                 |                   <-- snippets + sources -----------------------------------------------|
+  |                 |                   |                     |                       |                       |
+  |                 |                   |  synthesize         |                       |                       |
+  |                 <-- report ---------|                     |                       |                       |
+  <-- markdown -----|                   |                     |                       |                       |
+```
 
-### Installation
+1. The user submits a query through the Streamlit interface.
+2. The orchestrator delegates story discovery to the HackerNews Researcher.
+3. Retrieved URLs are passed explicitly to the Article Reader for full text extraction. The instruction set forces this handoff, because the reader has no way to discover URLs on its own.
+4. The Web Searcher enriches each story with outside context. The current date is injected into its context so recency-sensitive queries resolve correctly.
+5. The orchestrator merges every member response into one markdown report and returns it to the UI.
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Shreyanshsaboo/multi-agent-researcher.git
-   cd multi-agent-researcher
-   ```
+## Design decisions
 
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+**One tool per agent.** Tool selection accuracy drops sharply once an agent has several plausible options for the same step. Giving each agent a single tool removes the choice entirely, and the orchestrator absorbs the routing decision instead.
 
-3. **Launch the application**
-   ```bash
-   streamlit run research_agent.py
-   ```
+**Explicit artifact passing.** The Article Reader is never asked to "read the stories." It is handed a concrete list of URLs. Any implicit handoff between agents is a place where the pipeline silently produces an empty result.
 
-4. **Enter your OpenAI API key** in the application interface
+**Date injection at the agent level.** Only the Web Searcher gets `add_datetime_to_context=True`. Models have no reliable sense of the current date, so queries like "today's top stories" otherwise resolve against the training cutoff.
 
-5. **Start researching!** Enter any query related to HackerNews content or tech trends
+**Token ceilings on the local variant.** `llama3.2` members are capped at 1024 tokens. Local models tend to pad delegated subtask responses, which inflates the orchestrator's context and degrades the final synthesis.
 
-## 💡 Usage Examples
+## Variants
 
-**Sample Queries:**
-- "Summarize the top AI and machine learning stories from HackerNews today"
-- "Find recent discussions about large language models"
-- "Research trending startups mentioned on HackerNews this week"
-- "Analyze the most popular programming language discussions"
+| File | Model | Notes |
+|---|---|---|
+| `research_agent.py` | `gpt-4o-mini` via OpenAI API | Key is entered in the UI at runtime and never written to disk |
+| `research_agent_llama3.py` | `llama3.2` via Ollama | Runs entirely locally with no API key and no network LLM calls |
 
-## 🛠️ Technical Stack
+## Requirements
 
-- **Framework**: [Streamlit](https://streamlit.io/) - Interactive web application framework
-- **LLM**: [OpenAI GPT-4o-mini](https://openai.com/) - Language model for agent intelligence
-- **Agent Framework**: [Agno](https://github.com/agno-agi/agno) - Multi-agent orchestration
-- **APIs & Tools**:
-  - HackerNews API - Story and user data
-  - DuckDuckGo Search - Web search capabilities
-  - Newspaper4k - Article extraction and parsing
+- Python 3.8 or later
+- An OpenAI API key for the hosted variant
+- A local [Ollama](https://ollama.com/) install with `llama3.2` pulled, for the local variant
 
-## 📋 System Workflow
+## Installation
 
-1. **Query Reception**: User submits research query through Streamlit interface
-2. **Story Discovery**: HackerNews Researcher fetches relevant stories
-3. **Content Extraction**: Article Reader processes URLs and extracts full content
-4. **Context Enhancement**: Web Searcher gathers supplementary information
-5. **Synthesis**: Team Orchestrator compiles comprehensive report with citations
-6. **Output**: Structured markdown report delivered to user
+```bash
+git clone https://github.com/Shreyanshsaboo/multi-agent-researcher.git
+cd multi-agent-researcher
+pip install -r requirements.txt
+pip install ddgs newspaper4k lxml_html_clean
+```
 
-## 🔧 Configuration
+The second install covers the extraction and search backends the Agno tool wrappers call into. They are not pulled in by `agno` itself, and the tools fail at call time rather than import time if they are missing.
 
-The system uses GPT-4o-mini for cost-effective operations. To use different models:
+For the local variant, pull the model:
+
+```bash
+ollama pull llama3.2
+```
+
+## Usage
+
+Hosted variant:
+
+```bash
+streamlit run research_agent.py
+```
+
+Enter your OpenAI API key in the field at the top of the page, then submit a query.
+
+Local variant:
+
+```bash
+streamlit run research_agent_llama3.py
+```
+
+No key required. Make sure the Ollama daemon is running first.
+
+### Example queries
+
+- Summarize the top AI and machine learning stories on HackerNews today
+- Find recent discussions about large language model inference costs
+- Research trending developer tools mentioned on HackerNews this week
+
+## Configuration
+
+The model is set per agent at construction time. To trade cost for capability in the hosted variant:
 
 ```python
-model=OpenAIChat(id="gpt-4o")  # For enhanced performance
+model=OpenAIChat(id="gpt-4o")
 ```
 
-## 🌟 Key Learnings & Skills Demonstrated
+Agents run with `debug_mode=True` and `show_members_responses=True`, which surfaces each member's intermediate output. Both are useful while tracing a delegation path and should be turned off for a clean end-user report.
 
-- **AI/ML Engineering**: Multi-agent system design and implementation
-- **Software Architecture**: Modular, scalable agent-based architecture
-- **API Integration**: Seamless integration of multiple external APIs
-- **Python Development**: Clean, maintainable code following best practices
-- **UI/UX Design**: User-friendly interface with Streamlit
-- **Prompt Engineering**: Effective agent instruction design for optimal outputs
+The orchestrator's `instructions` list is the workflow definition. Changing the order of those lines changes the pipeline, which is the fastest way to experiment with a different research strategy.
 
-## 🔮 Future Enhancements
+## Project structure
 
-- [ ] Add support for multiple LLM providers (Anthropic, Google, etc.)
-- [ ] Implement caching layer for improved performance
-- [ ] Add export functionality (PDF, JSON, Markdown)
-- [ ] Integrate vector database for semantic search
-- [ ] Deploy as containerized application (Docker)
-- [ ] Add user authentication and session management
+```
+multi-agent-researcher/
+├── research_agent.py           OpenAI-backed variant
+├── research_agent_llama3.py    Ollama-backed local variant
+├── requirements.txt
+└── README.md
+```
 
-## 📝 License
+## Roadmap
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+- Provider abstraction so the backend is selectable at runtime instead of per file
+- Response caching to avoid refetching articles across related queries
+- Report export to PDF, JSON, and Markdown
+- Vector store for semantic retrieval over previously researched material
+- Containerized deployment
 
-## 🤝 Contributing
+## Credits
 
-Contributions, issues, and feature requests are welcome! Feel free to check the issues page.
+Built on the [Agno](https://github.com/agno-agi/agno) agent framework. The initial agent scaffolding was adapted from the `multi_agent_researcher` example in [awesome-llm-apps](https://github.com/Shubhamsaboo/awesome-llm-apps), Apache 2.0.
 
-## 👨‍💻 Author
+## License
 
-**Shreyansh Saboo**
+Apache License 2.0.
 
-- GitHub: [@Shreyanshsaboo](https://github.com/Shreyanshsaboo)
+## Author
 
-## 🙏 Acknowledgments
-
-- OpenAI for GPT-4o API
-- Streamlit for the amazing framework
-- HackerNews for the API access
-- The open-source community
-
----
-
-⭐ **If you find this project useful, please consider giving it a star!**
-
+Shreyansh Saboo, [@Shreyanshsaboo](https://github.com/Shreyanshsaboo)
