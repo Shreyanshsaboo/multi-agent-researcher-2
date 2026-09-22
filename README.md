@@ -204,10 +204,6 @@ multi-agent-researcher/
 - Vector store for semantic retrieval over previously researched material
 - Containerized deployment
 
-## Credits
-
-Built on the [Agno](https://github.com/agno-agi/agno) agent framework. The initial agent scaffolding was adapted from the `multi_agent_researcher` example in [awesome-llm-apps](https://github.com/Shubhamsaboo/awesome-llm-apps), Apache 2.0.
-
 ## License
 
 Apache License 2.0.
