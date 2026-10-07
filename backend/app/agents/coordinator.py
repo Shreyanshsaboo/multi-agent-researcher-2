@@ -51,6 +51,12 @@ HOW TO WORK
 - When the critic and the writer disagree about an issue, you have the final word: decide in
   "thought" whose argument holds and brief the writer accordingly.
 - Respect the budget. With 1-2 turns left, draft or finish rather than research more.
+
+FOLLOW-UPS
+- When the state shows a CONVERSATION SO FAR, read the query in its light ("tell me more about
+  the second point", "what about costs?") and write the plan as standalone questions.
+- Sources from earlier answers are already in the evidence store. If they are enough (e.g.
+  "summarise that", "explain it simply"), draft straight away; research only what is new.
 - Keep "thought" to 1-3 sentences on why this action, now.
 """
 

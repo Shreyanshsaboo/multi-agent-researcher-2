@@ -1,8 +1,9 @@
-"""SQLite persistence: runs, their full event traces, and long-term recall.
+"""SQLite persistence: runs, conversations, their full event traces, and recall.
 
 Events are written as they are emitted, so the trace of a run survives a
-restart and a finished run can be replayed event by event. Recall finds past
-runs on similar questions; the coordinator sees them as long-term memory.
+restart and a finished run can be replayed event by event. Runs that follow up
+on each other share a thread id; a thread is one conversation. Recall finds
+past runs on similar questions; the coordinator sees them as long-term memory.
 """
 
 import json
@@ -23,7 +24,8 @@ CREATE TABLE IF NOT EXISTS runs (
     created_at  REAL NOT NULL,
     finished_at REAL,
     title       TEXT,
-    result      TEXT
+    result      TEXT,
+    thread_id   TEXT
 );
 CREATE TABLE IF NOT EXISTS events (
     run_id  TEXT NOT NULL,
@@ -45,6 +47,15 @@ class RunStore:
             if path != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(SCHEMA)
+            self._migrate()
+
+    def _migrate(self) -> None:
+        """Bring databases created before conversations existed up to date."""
+        columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(runs)")}
+        if "thread_id" not in columns:
+            self._conn.execute("ALTER TABLE runs ADD COLUMN thread_id TEXT")
+            self._conn.execute("UPDATE runs SET thread_id = id WHERE thread_id IS NULL")
+        self._conn.execute("CREATE INDEX IF NOT EXISTS runs_by_thread ON runs (thread_id, created_at)")
 
     def _execute(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
         with self._lock:
@@ -52,10 +63,12 @@ class RunStore:
 
     # ----------------------------------------------------------------- writes
 
-    def create_run(self, run_id: str, query: str, options: dict[str, Any]) -> None:
+    def create_run(self, run_id: str, query: str, options: dict[str, Any],
+                   thread_id: str | None = None) -> None:
         self._execute(
-            "INSERT INTO runs (id, query, options, status, created_at) VALUES (?, ?, ?, 'running', ?)",
-            (run_id, query, json.dumps(options), time.time()),
+            "INSERT INTO runs (id, query, options, status, created_at, thread_id) "
+            "VALUES (?, ?, ?, 'running', ?, ?)",
+            (run_id, query, json.dumps(options), time.time(), thread_id or run_id),
         )
 
     def append_event(self, run_id: str, event: dict[str, Any]) -> None:
@@ -86,9 +99,13 @@ class RunStore:
         rows = self._execute("SELECT * FROM runs WHERE id = ?", (run_id,))
         if not rows:
             return None
-        row = rows[0]
+        return self._run_dict(rows[0])
+
+    @staticmethod
+    def _run_dict(row: sqlite3.Row) -> dict[str, Any]:
         return {
             "id": row["id"],
+            "thread_id": row["thread_id"],
             "query": row["query"],
             "options": json.loads(row["options"]),
             "status": row["status"],
@@ -108,21 +125,40 @@ class RunStore:
         )
         return [dict(row) for row in rows]
 
+    def list_threads(self, limit: int = 30) -> list[dict[str, Any]]:
+        """Conversations, most recently active first, titled by their first question."""
+        rows = self._execute(
+            "SELECT thread_id, COUNT(*) AS turns, MIN(created_at) AS created_at, "
+            "MAX(created_at) AS updated_at, "
+            "(SELECT query FROM runs f WHERE f.thread_id = r.thread_id "
+            " ORDER BY created_at LIMIT 1) AS title, "
+            "(SELECT status FROM runs l WHERE l.thread_id = r.thread_id "
+            " ORDER BY created_at DESC LIMIT 1) AS status "
+            "FROM runs r GROUP BY thread_id ORDER BY updated_at DESC LIMIT ?",
+            (limit,),
+        )
+        return [dict(row) for row in rows]
+
+    def thread_runs(self, thread_id: str) -> list[dict[str, Any]]:
+        rows = self._execute("SELECT * FROM runs WHERE thread_id = ? ORDER BY created_at", (thread_id,))
+        return [self._run_dict(row) for row in rows]
+
     def events(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
         rows = self._execute(
             "SELECT payload FROM events WHERE run_id = ? AND seq > ? ORDER BY seq", (run_id, after)
         )
         return [json.loads(row["payload"]) for row in rows]
 
-    def recall(self, query: str, *, limit: int = 2, exclude: str | None = None) -> list[dict[str, Any]]:
-        """Completed past runs on a similar question, best match first."""
+    def recall(self, query: str, *, limit: int = 2, exclude: str | None = None,
+               exclude_thread: str | None = None) -> list[dict[str, Any]]:
+        """Completed past runs on a similar question from other conversations, best first."""
         rows = self._execute(
-            "SELECT id, query, title, created_at, result FROM runs "
+            "SELECT id, query, title, created_at, result, thread_id FROM runs "
             "WHERE status = 'completed' AND result IS NOT NULL ORDER BY created_at DESC LIMIT 200"
         )
         matches = []
         for row in rows:
-            if row["id"] == exclude:
+            if row["id"] == exclude or (exclude_thread and row["thread_id"] == exclude_thread):
                 continue
             score, shared = similarity(query, f"{row['query']} {row['title'] or ''}")
             if shared >= 2 and score >= 0.2:

@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.agents import describe_agents
 from app.config import BUDGETS, Settings, get_settings
-from app.runner import RunManager, SuiteFactory, TooManyRuns
+from app.runner import RunManager, SuiteFactory, TooManyRuns, UnknownThread
 from app.schemas import RunRequest
 from app.store import RunStore
 from app.team import build_suite
@@ -79,14 +79,29 @@ def create_app(
         if not settings.llm_configured:
             raise HTTPException(503, "No LLM is configured: set GROQ_API_KEY on the server.")
         try:
-            run_id = manager.start(request)
+            run_id, thread_id = manager.start(request)
         except TooManyRuns as exc:
             raise HTTPException(429, str(exc)) from exc
-        return {"run_id": run_id}
+        except UnknownThread as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return {"run_id": run_id, "thread_id": thread_id}
 
     @app.get("/api/runs")
     def list_runs(limit: int = 20) -> dict:
         return {"runs": store.list_runs(min(max(limit, 1), 100))}
+
+    @app.get("/api/threads")
+    def list_threads(limit: int = 30) -> dict:
+        return {"threads": store.list_threads(min(max(limit, 1), 100))}
+
+    @app.get("/api/threads/{thread_id}")
+    def get_thread(thread_id: str) -> dict:
+        runs = store.thread_runs(thread_id)
+        if not runs:
+            raise HTTPException(404, f"conversation {thread_id} not found")
+        return {"thread_id": thread_id,
+                "runs": [{k: run[k] for k in ("id", "query", "status", "created_at", "title")}
+                         for run in runs]}
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str) -> dict:

@@ -39,6 +39,8 @@ class RunState:
     notes: list[str] = field(default_factory=list)
     # Long-term memory: similar questions this system has researched before.
     related: list[dict[str, Any]] = field(default_factory=list)
+    # Earlier turns of this conversation, when the query is a follow-up.
+    conversation: list[dict[str, Any]] = field(default_factory=list)
     tokens: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     started: float = field(default_factory=time.monotonic)
 
@@ -104,10 +106,23 @@ class RunState:
             lines.append(f"  writer dispute on {ruling.issue_id}: {outcome}. {_clip(ruling.note, 120)}")
         return "\n".join(lines)
 
+    def render_conversation(self) -> str:
+        """Earlier questions and answers, so follow-ups like "tell me more" resolve."""
+        lines = []
+        for i, turn in enumerate(self.conversation, 1):
+            lines.append(f"Q{i}: {turn['query']}")
+            lines.append(f"A{i}: \"{turn['title']}\" {_clip(turn['summary'], 500)}")
+        return "\n".join(lines)
+
     def render_for_coordinator(self) -> str:
         b = self.budget
         drafts_left = b.max_drafts - len(self.drafts)
-        sections = [
+        sections = []
+        if self.conversation:
+            sections.append(
+                "CONVERSATION SO FAR (the query below may be a follow-up; sources cited in "
+                "these answers are already in the evidence store):\n" + self.render_conversation())
+        sections += [
             f"USER QUERY: {self.query}",
             f"TODAY: {date.today().isoformat()}",
             (f"BUDGET: turn {self.turn} of {b.max_turns}; {drafts_left} of {b.max_drafts} drafts "

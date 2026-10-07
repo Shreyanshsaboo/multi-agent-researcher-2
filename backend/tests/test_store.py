@@ -50,3 +50,39 @@ def test_recall_finds_similar_past_research_with_cited_urls():
     assert [r["run_id"] for r in related] == ["r1"]
     assert related[0]["urls"] == ["https://a.com/caching", "https://b.com/routing"]
     assert store.recall("cut LLM inference costs", exclude="r1") == []
+
+
+def test_threads_group_follow_ups_under_their_first_question():
+    store = RunStore(":memory:")
+    store.create_run("a", "First question", {})
+    store.create_run("b", "Follow-up", {}, thread_id="a")
+    store.create_run("c", "Unrelated", {})
+    threads = {t["thread_id"]: t for t in store.list_threads()}
+    assert threads["a"]["turns"] == 2
+    assert threads["a"]["title"] == "First question"
+    assert threads["c"]["turns"] == 1
+    assert [r["id"] for r in store.thread_runs("a")] == ["a", "b"]
+    assert store.get_run("b")["thread_id"] == "a"
+
+
+def test_recall_skips_the_current_conversation():
+    store = RunStore(":memory:")
+    finished_run(store, "r1", "How are teams cutting LLM inference costs?", "Inference cost tactics",
+                 ["https://a.com/caching"])
+    assert store.recall("cutting LLM inference costs", exclude_thread="r1") == []
+
+
+def test_databases_from_before_threads_are_migrated(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE runs (id TEXT PRIMARY KEY, query TEXT NOT NULL, options TEXT NOT NULL, "
+                 "status TEXT NOT NULL, created_at REAL NOT NULL, finished_at REAL, title TEXT, result TEXT)")
+    conn.execute("INSERT INTO runs VALUES ('old', 'q', '{}', 'completed', 1, 2, 't', NULL)")
+    conn.commit()
+    conn.close()
+
+    store = RunStore(path)
+    assert store.get_run("old")["thread_id"] == "old"
+    assert store.list_threads()[0]["thread_id"] == "old"

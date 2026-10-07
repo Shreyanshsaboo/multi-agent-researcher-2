@@ -21,14 +21,15 @@ from tests.fakes import (
 )
 
 
-def build(coordinator, *, critic=None, writer=None, failing=(), budget=BUDGET):
+def build(coordinator, *, critic=None, writer=None, failing=(), budget=BUDGET, conversation=None):
     channel, evidence = RunChannel("r"), EvidenceStore()
     workers = {a: FakeWorker(a, evidence, fail=a in failing)
                for a in ("hn_scout", "web_researcher", "article_reader")}
     suite = AgentSuite(coordinator=coordinator, writer=writer or FakeWriter(),
                        critic=critic or FakeCritic(APPROVE), workers=workers)
     orchestrator = Orchestrator(run_id="r", query="What changed?", depth="quick", budget=budget,
-                                channel=channel, suite=suite, evidence=evidence)
+                                channel=channel, suite=suite, evidence=evidence,
+                                conversation=conversation)
     return orchestrator, channel, workers
 
 
@@ -182,3 +183,32 @@ async def test_cannot_finish_or_draft_before_any_research(action):
 
     assert workers["web_researcher"].calls
     assert result.report_markdown
+
+
+EARLIER = [{
+    "query": "How are teams cutting inference costs?",
+    "title": "Inference cost tactics",
+    "summary": "Caching and routing cut costs [E1].",
+    "evidence": [{"id": "E4", "url": "https://a.com/caching", "title": "Caching", "source_type": "web",
+                  "found_by": ["web_researcher"], "key_points": ["Caching cut costs 36%"],
+                  "full_text_read": True, "published": None, "meta": {}}],
+}]
+
+
+async def test_follow_up_sees_the_conversation_and_reuses_earlier_sources():
+    def summarise(view):
+        assert "CONVERSATION SO FAR" in view
+        assert "Q1: How are teams cutting inference costs?" in view
+        assert "[E1] Caching" in view
+        return decision("draft", writer_brief="Summarise the earlier answer")
+
+    coordinator = ScriptedCoordinator([summarise, decision("finish")])
+    orchestrator, channel, workers = build(coordinator, conversation=EARLIER)
+    result = await orchestrator.run()
+
+    # Answered from the carried-over source, without any new research.
+    assert not any(w.calls for w in workers.values())
+    assert result.cited_ids == ["E1"]
+    assert result.evidence[0].meta["earlier_turn"] is True
+    [context] = [e for e in channel.events if e["type"] == "context"]
+    assert context["carried"] == ["E1"]

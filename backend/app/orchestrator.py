@@ -89,11 +89,13 @@ class Orchestrator:
         suite: AgentSuite,
         evidence: EvidenceStore,
         related: list[dict[str, Any]] | None = None,
+        conversation: list[dict[str, Any]] | None = None,
     ) -> None:
         self.channel = channel
         self.suite = suite
         self.state = RunState(run_id=run_id, query=query, depth=depth, budget=budget,
-                              evidence=evidence, related=related or [])
+                              evidence=evidence, related=related or [],
+                              conversation=conversation or [])
         self._task_seq = 0
 
     # ------------------------------------------------------------------- the loop
@@ -101,6 +103,8 @@ class Orchestrator:
     async def run(self) -> RunResult:
         state, channel = self.state, self.channel
         channel.message("user", "coordinator", "query", state.query)
+        if state.conversation:
+            self._carry_forward_sources()
         if state.related:
             channel.emit("memory", items=state.related)
 
@@ -119,6 +123,27 @@ class Orchestrator:
                         result.message or f"Report ready: {result.title}",
                         content={"status": result.status, "review_status": result.review_status})
         return result
+
+    def _carry_forward_sources(self) -> None:
+        """Seed a follow-up's evidence store with the sources earlier answers cited.
+
+        A follow-up like "summarise that" can then be answered without new
+        research, and "tell me more about X" only has to research what is new.
+        """
+        carried = []
+        for turn in self.state.conversation:
+            for e in turn["evidence"]:
+                item, created = self.state.evidence.add(
+                    url=e["url"], title=e["title"], source_type=e["source_type"],
+                    agent=(e.get("found_by") or ["coordinator"])[0], key_points=e["key_points"],
+                    full_text_read=e.get("full_text_read", False), published=e.get("published"),
+                    meta={**e.get("meta", {}), "earlier_turn": True})
+                if created:
+                    carried.append(item)
+                    self.channel.emit("evidence", agent="coordinator", task_id="context",
+                                      created=True, item=item.model_dump())
+        self.channel.emit("context", turns=len(self.state.conversation),
+                          carried=[item.id for item in carried])
 
     def _budget_exhausted(self) -> str | None:
         if self.state.turn >= self.state.budget.max_turns:

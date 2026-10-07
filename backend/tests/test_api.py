@@ -102,3 +102,27 @@ def test_concurrent_run_limit_returns_429(tmp_path):
     app = create_app(settings=settings, store=RunStore(":memory:"), suite_factory=fake_suite)
     with TestClient(app) as test_client:
         assert test_client.post("/api/runs", json={"query": "anything at all"}).status_code == 429
+
+
+def test_follow_up_joins_the_conversation(client):
+    first = client.post("/api/runs", json={"query": "What changed in LLM pricing?"}).json()
+    assert first["thread_id"] == first["run_id"]
+    read_stream(client, first["run_id"])
+
+    second = client.post("/api/runs", json={"query": "Summarise that in three bullets",
+                                            "thread_id": first["thread_id"]}).json()
+    assert second["thread_id"] == first["thread_id"]
+    events = read_stream(client, second["run_id"])
+    assert events[0]["follow_up"] is True
+    assert any(e["type"] == "context" for e in events)
+
+    thread = client.get(f"/api/threads/{first['thread_id']}").json()
+    assert [r["id"] for r in thread["runs"]] == [first["run_id"], second["run_id"]]
+    [listed] = client.get("/api/threads").json()["threads"]
+    assert listed["turns"] == 2 and listed["title"] == "What changed in LLM pricing?"
+
+
+def test_follow_up_to_unknown_conversation_is_404(client):
+    response = client.post("/api/runs", json={"query": "anything at all", "thread_id": "missing"})
+    assert response.status_code == 404
+    assert client.get("/api/threads/missing").status_code == 404

@@ -32,6 +32,9 @@ class RunOptions(BaseModel):
 class RunRequest(BaseModel):
     query: str = Field(min_length=3, max_length=500)
     options: RunOptions = Field(default_factory=RunOptions)
+    # Continue an existing conversation: the run sees its earlier questions,
+    # answers and sources. Omitted for a new conversation.
+    thread_id: str | None = Field(default=None, max_length=64)
 
     @field_validator("query")
     @classmethod

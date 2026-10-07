@@ -31,6 +31,10 @@ RULES
 - Keep figures, dates and names from the evidence. 350-650 words. Do not add a title heading
   or a sources list; the app renders both.
 
+FOLLOW-UPS
+- If the prompt shows earlier questions and answers, answer the new question in that context
+  without repeating the earlier answer. Sources from earlier answers are in the evidence list.
+
 REVISING
 - When you get a critic review, address every issue. Add one response per issue: action
   "fixed" with what you changed, or "disputed" only if the critic is wrong given the evidence,
@@ -79,7 +83,10 @@ class WriterAgent:
         )
 
     def _prompt(self, state: RunState, brief: str) -> str:
-        parts = [
+        parts = []
+        if state.conversation:
+            parts.append(f"EARLIER IN THIS CONVERSATION:\n{state.render_conversation()}")
+        parts += [
             f"USER QUERY: {state.query}",
             f"RESEARCH PLAN:\n{state.render_plan()}",
             f"COORDINATOR'S BRIEF: {brief or 'Write the report.'}",

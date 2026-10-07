@@ -72,7 +72,11 @@ class CriticAgent:
         )
 
     def _prompt(self, state: RunState, draft: Draft, checks: CitationCheck) -> str:
-        parts = [
+        parts = []
+        if state.conversation:
+            parts.append("EARLIER IN THIS CONVERSATION (the query may be a follow-up):\n"
+                         + state.render_conversation())
+        parts += [
             f"USER QUERY: {state.query}",
             f"RESEARCH PLAN:\n{state.render_plan()}",
             f"EVIDENCE:\n{state.evidence.render_full()}",
