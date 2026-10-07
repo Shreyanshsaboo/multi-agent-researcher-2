@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/* Surface and text tokens switch with the colour scheme; utilities reference them. */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+:root {
+  color-scheme: light;
+  --canvas: #f5f6f8;
+  --panel: #ffffff;
+  --sunken: #f0f2f5;
+  --line: #e2e5ea;
+  --ink: #111318;
+  --ink-2: #4a5160;
+  --ink-3: #7c8494;
+  --accent: #7c3aed;
+  --accent-soft: #ede9fe;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #e11d48;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --canvas: #0b0d11;
+    --panel: #12151b;
+    --sunken: #0e1116;
+    --line: #232833;
+    --ink: #eef0f4;
+    --ink-2: #aab1bf;
+    --ink-3: #6f7788;
+    --accent: #a78bfa;
+    --accent-soft: #2a2140;
+    --good: #4ade80;
+    --warn: #fbbf24;
+    --bad: #fb7185;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Report typography: the markdown renderer emits plain elements. */
+.prose-report {
+  line-height: 1.7;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+.prose-report h2 {
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin: 1.6rem 0 0.5rem;
+}
+.prose-report h3 {
+  font-size: 0.95rem;
+  font-weight: 650;
+  margin: 1.2rem 0 0.4rem;
+}
+.prose-report p {
+  margin: 0.6rem 0;
+}
+.prose-report ul,
+.prose-report ol {
+  margin: 0.5rem 0;
+  padding-left: 1.3rem;
+}
+.prose-report ul {
+  list-style: disc;
+}
+.prose-report ol {
+  list-style: decimal;
+}
+.prose-report li {
+  margin: 0.25rem 0;
+}
+.prose-report strong {
+  font-weight: 650;
+}
+.prose-report table {
+  border-collapse: collapse;
+  margin: 0.8rem 0;
+  font-size: 0.85rem;
+}
+.prose-report th,
+.prose-report td {
+  border: 1px solid var(--line);
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+}
+
+@keyframes pulse-ring {
+  0% { opacity: 0.55; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.18); }
+}
+.node-active-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulse-ring 1.4s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node-active-ring { animation: none; }
+}
