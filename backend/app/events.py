@@ -84,9 +84,13 @@ class RunChannel:
 
     # --------------------------------------------------------------- subscribing
 
-    async def subscribe(self, after: int = 0) -> AsyncIterator[dict[str, Any]]:
+    async def subscribe(
+        self, after: int = 0, heartbeat: float | None = None
+    ) -> AsyncIterator[dict[str, Any] | None]:
         """Replay events after ``after``, then follow live ones until the run ends.
 
+        With ``heartbeat`` set, yields None after that many idle seconds, so a
+        stream can send keep-alives through proxies that drop quiet connections.
         The backlog snapshot and the queue registration happen with no await in
         between, so on a single event loop no event can fall in the gap.
         """
@@ -102,7 +106,11 @@ class RunChannel:
             for event in backlog:
                 yield event
             while True:
-                event = await queue.get()
+                try:
+                    event = await asyncio.wait_for(queue.get(), heartbeat)
+                except TimeoutError:
+                    yield None
+                    continue
                 if event is None:
                     return
                 yield event
