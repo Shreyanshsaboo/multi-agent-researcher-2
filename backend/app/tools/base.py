@@ -5,9 +5,9 @@ in the run trace, applies fault injection, and turns exceptions into an error
 string the agent reads and reacts to (rather than crashing the run).
 
 The context also remembers every URL a tool returned, along with the text it
-returned for it. ``record_findings`` checks against that: a worker can only save
-a source it actually retrieved, and any figure in a key point has to appear in
-the retrieved text.
+returned for it. The findings a worker reports are checked against that: a
+worker can only save a source it actually retrieved, and any figure in a key
+point has to appear in the retrieved text.
 """
 
 import itertools
@@ -37,6 +37,7 @@ class SourceMeta:
     title: str
     source_type: str
     text: str = ""
+    url: str = ""
     published: str | None = None
     full_text: bool = False
     meta: dict[str, Any] = field(default_factory=dict)
@@ -79,10 +80,12 @@ class ToolContext:
         self.seen: dict[str, SourceMeta] = {}
         self.evidence_ids: list[str] = []
         self.tool_calls = 0
+        self.rejected = 0
         self.errors: list[str] = []
         self._call_ids = itertools.count(1)
 
     def remember(self, url: str, meta: SourceMeta) -> None:
+        meta.url = url
         key = normalize_url(url)
         previous = self.seen.get(key)
         if previous:
@@ -189,23 +192,25 @@ class ToolContext:
         merged = " (merged into an existing source)" if not created else ""
         return f"SAVED {finding.url} as {item.id}{merged}{note}"
 
-    async def record_findings(self, findings: list[Finding]) -> str:
-        async def body() -> str:
-            if not findings:
-                return "Nothing to save."
-            return "\n".join(self._save(f) for f in findings)
+    def save_findings(self, findings: list[Finding]) -> list[str]:
+        """Validate and store the findings a worker reported; returns one outcome line each."""
+        outcomes = [self._save(f) for f in findings]
+        self.rejected += sum(o.startswith("REJECTED") for o in outcomes)
+        return outcomes
 
-        args = {"count": len(findings), "urls": [f.url for f in findings]}
-        return await self.call("record_findings", args, body, faultable=False)
+    def salvage(self, limit: int = 3) -> list[str]:
+        """Save raw sources from tool output when the agent failed before reporting.
 
-
-def record_findings_tool(ctx: ToolContext) -> Callable[..., Awaitable[str]]:
-    async def record_findings(findings: list[Finding]) -> str:
-        """Save the useful sources you retrieved as evidence for the report, all in one call.
-
-        Args:
-            findings: One entry per source: its exact url, a short title, and 1-4 key points.
+        The key point is the tool's own text for the source, so it is grounded by
+        construction, but it has not been read or summarised by the agent.
         """
-        return await ctx.record_findings(findings)
-
-    return record_findings
+        ranked = sorted(self.seen.items(), key=lambda kv: not kv[1].full_text)
+        saved = []
+        for _, meta in ranked:
+            if len(self.evidence_ids) >= min(limit, self.max_findings):
+                break
+            if not meta.text:
+                continue
+            point = " ".join(meta.text.split())[:MAX_POINT_CHARS]
+            saved.append(self._save(Finding(url=meta.url, title=meta.title, key_points=[point])))
+        return saved

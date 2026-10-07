@@ -9,11 +9,12 @@ import asyncio
 from typing import Any
 
 from ddgs import DDGS
+from ddgs.exceptions import DDGSException
 
 from app.evidence import domain_of
-from app.tools.base import SourceMeta, ToolContext, record_findings_tool
+from app.tools.base import SourceMeta, ToolContext
 
-SNIPPET_CHARS = 260
+SNIPPET_CHARS = 220
 # Sponsored results come back as redirect links rather than the advertiser's page.
 _AD_MARKERS = ("bing.com/aclick", "duckduckgo.com/y.js")
 TIMELIMITS = {"d", "w", "m", "y"}
@@ -23,8 +24,18 @@ def _is_ad(url: str) -> bool:
     return any(marker in url for marker in _AD_MARKERS)
 
 
+def _search(method: str, query: str, **kwargs: Any) -> list[dict[str, Any]]:
+    """Call ddgs, treating "no results" as an empty list rather than an error."""
+    try:
+        return getattr(DDGS(), method)(query, backend="auto", **kwargs) or []
+    except DDGSException as exc:
+        if "no results" in str(exc).lower():
+            return []
+        raise
+
+
 def _web_results(query: str, max_results: int) -> list[dict[str, Any]]:
-    raw = DDGS().text(query, max_results=max_results + 3, backend="auto") or []
+    raw = _search("text", query, max_results=max_results + 3)
     results = []
     for r in raw:
         url = r.get("href") or ""
@@ -35,7 +46,7 @@ def _web_results(query: str, max_results: int) -> list[dict[str, Any]]:
 
 
 def _news_results(query: str, max_results: int, timelimit: str) -> list[dict[str, Any]]:
-    raw = DDGS().news(query, max_results=max_results, timelimit=timelimit, backend="auto") or []
+    raw = _search("news", query, max_results=max_results, timelimit=timelimit)
     results = []
     for r in raw:
         url = r.get("url") or ""
@@ -65,7 +76,7 @@ def _remember(ctx: ToolContext, results: list[dict[str, Any]], source_type: str)
 
 
 def make_web_tools(ctx: ToolContext) -> list:
-    async def web_search(query: str, max_results: int = 6) -> str:
+    async def web_search(query: str, max_results: int = 5) -> str:
         """Search the web. Best for facts, official sources, documentation and background.
 
         Args:
@@ -81,7 +92,7 @@ def make_web_tools(ctx: ToolContext) -> list:
 
         return await ctx.call("web_search", {"query": query}, body)
 
-    async def news_search(query: str, timelimit: str = "m", max_results: int = 6) -> str:
+    async def news_search(query: str, timelimit: str = "m", max_results: int = 5) -> str:
         """Search recent news articles. Best for current events and anything time-sensitive.
 
         Args:
@@ -99,4 +110,4 @@ def make_web_tools(ctx: ToolContext) -> list:
 
         return await ctx.call("news_search", {"query": query, "timelimit": timelimit}, body)
 
-    return [web_search, news_search, record_findings_tool(ctx)]
+    return [web_search, news_search]

@@ -20,7 +20,7 @@ async def test_hn_search_reports_empty_results_as_guidance(make_ctx):
 
 
 async def test_story_comments_skips_deleted_and_ranks_by_replies(make_ctx):
-    _, _, comments, _ = make_hn_tools(make_ctx())
+    _, _, comments = make_hn_tools(make_ctx())
     out = await comments("101")
     lines = [line for line in out.splitlines() if line.startswith("- ")]
     assert len(lines) == 2
@@ -28,27 +28,28 @@ async def test_story_comments_skips_deleted_and_ranks_by_replies(make_ctx):
     assert "<i>" not in out
 
 
-async def test_record_findings_accepts_only_retrieved_urls(make_ctx, evidence, channel):
+async def test_findings_are_accepted_only_for_retrieved_urls(make_ctx, evidence, channel):
     ctx = make_ctx()
-    search, _, _, record = make_hn_tools(ctx)
+    search, *_ = make_hn_tools(ctx)
     await search("llm prices")
-    out = await record([
+    out = "\n".join(ctx.save_findings([
         Finding(url="https://blog.example.com/prices", title="Prices",
                 key_points=["Inference prices fell 80% this year"]),
         Finding(url="https://invented.example.org/x", title="Made up", key_points=["claim"]),
-    ])
+    ]))
     assert "SAVED https://blog.example.com/prices as E1" in out
     assert "REJECTED https://invented.example.org/x" in out
     assert len(evidence) == 1
+    assert ctx.rejected == 1
     rules = [e["rule"] for e in channel.events if e["type"] == "guardrail"]
     assert rules == ["unseen_source"]
 
 
-async def test_record_findings_drops_points_with_figures_not_in_source(make_ctx, evidence, channel):
+async def test_points_with_figures_not_in_source_are_dropped(make_ctx, evidence, channel):
     ctx = make_ctx()
-    search, _, _, record = make_hn_tools(ctx)
+    search, *_ = make_hn_tools(ctx)
     await search("llm prices")
-    out = await record([
+    [out] = ctx.save_findings([
         Finding(url="https://blog.example.com/prices", title="Prices",
                 key_points=["Story drew 230 comments", "Prices fell 95% in a week"]),
     ])
@@ -57,16 +58,26 @@ async def test_record_findings_drops_points_with_figures_not_in_source(make_ctx,
     assert any(e.get("rule") == "ungrounded_figure" for e in channel.events)
 
 
-async def test_record_findings_respects_limit(make_ctx, evidence):
+async def test_findings_respect_per_task_limit(make_ctx, evidence):
     ctx = make_ctx(max_findings=1)
-    search, _, _, record = make_hn_tools(ctx)
+    search, *_ = make_hn_tools(ctx)
     await search("llm prices")
-    out = await record([
+    out = ctx.save_findings([
         Finding(url="https://blog.example.com/prices", title="A", key_points=["point"]),
         Finding(url="https://news.ycombinator.com/item?id=102", title="B", key_points=["point"]),
     ])
-    assert "SKIPPED" in out
+    assert out[1].startswith("SKIPPED")
     assert len(evidence) == 1
+
+
+async def test_salvage_saves_retrieved_sources_with_tool_text(make_ctx, evidence, channel):
+    ctx = make_ctx()
+    search, *_ = make_hn_tools(ctx)
+    await search("llm prices")
+    saved = ctx.salvage(limit=2)
+    assert len(saved) == 2 and all(s.startswith("SAVED") for s in saved)
+    assert len(evidence) == 2
+    assert "412 points" in evidence.get("E1").key_points[0]
 
 
 async def test_simulated_fault_returns_error_text_and_traces_it(make_ctx, channel):
@@ -89,7 +100,7 @@ async def test_web_search_filters_sponsored_links(make_ctx, monkeypatch):
 
     monkeypatch.setattr(web, "DDGS", FakeDDGS)
     ctx = make_ctx(agent_id="web_researcher")
-    web_search, _, _ = make_web_tools(ctx)
+    web_search, _ = make_web_tools(ctx)
     out = await web_search("pricing")
     assert "docs.example.com/pricing" in out
     assert "aclick" not in out
@@ -98,7 +109,7 @@ async def test_web_search_filters_sponsored_links(make_ctx, monkeypatch):
 
 async def test_read_article_refuses_urls_outside_allowed_set(make_ctx):
     ctx = make_ctx(agent_id="article_reader", allowed_urls={"https://ok.example.com/a"})
-    read_article, _ = make_article_tools(ctx)
+    [read_article] = make_article_tools(ctx)
     out = await read_article("https://elsewhere.example.com/b", "anything")
     assert "PermissionError" in out
 
@@ -115,7 +126,7 @@ async def test_read_article_returns_focused_excerpt(make_ctx, monkeypatch):
 
     monkeypatch.setattr(articles, "_extract", fake_extract)
     ctx = make_ctx(agent_id="article_reader")
-    read_article, _ = make_article_tools(ctx)
+    [read_article] = make_article_tools(ctx)
     out = await read_article("https://survey.example.com", "GPU rental pricing")
     assert "GPU rental pricing dropped" in out
     assert out.count("Filler paragraph") < 80

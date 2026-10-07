@@ -11,13 +11,13 @@ from typing import Any
 
 import httpx
 
-from app.tools.base import SourceMeta, ToolContext, record_findings_tool
+from app.tools.base import SourceMeta, ToolContext
 
 ALGOLIA = "https://hn.algolia.com/api/v1"
 HN_ITEM = "https://news.ycombinator.com/item?id={}"
 _HN_ITEM_RE = re.compile(r"news\.ycombinator\.com/item\?id=(\d+)")
 _TAG_RE = re.compile(r"<[^>]+>")
-COMMENT_CHARS = 450
+COMMENT_CHARS = 320
 
 
 def hn_item_id(url: str) -> str | None:
@@ -125,16 +125,16 @@ def _remember_stories(ctx: ToolContext, stories: list[dict[str, Any]]) -> None:
         meta = {"hn_id": s["id"], "points": s["points"], "comments": s["comments"],
                 "discussion": s["discussion"]}
         ctx.remember(s["url"], SourceMeta(title=s["title"], source_type="hackernews",
-                                          text=listing, published=s["date"], meta=meta))
+                                          text=listing, published=s["date"], meta=dict(meta)))
         if s["discussion"] != s["url"]:
             ctx.remember(s["discussion"], SourceMeta(
                 title=f"HN discussion: {s['title']}", source_type="hackernews",
-                text=listing, published=s["date"], meta=meta))
+                text=listing, published=s["date"], meta=dict(meta)))
 
 
 def make_hn_tools(ctx: ToolContext) -> list:
     async def search_hackernews(
-        query: str, sort: str = "relevance", days: int = 0, max_results: int = 8
+        query: str, sort: str = "relevance", days: int = 0, max_results: int = 6
     ) -> str:
         """Search Hacker News stories by keyword.
 
@@ -142,11 +142,11 @@ def make_hn_tools(ctx: ToolContext) -> list:
             query: 2-5 keywords. Short keyword queries match far better than sentences.
             sort: "relevance" for the best matches overall, or "recent" for newest first.
             days: Only stories from the last N days; 0 for no limit.
-            max_results: Number of stories to return, 1-10.
+            max_results: Number of stories to return, 1-8.
         """
         async def body() -> str:
             stories = await search_stories(ctx.http, query, sort=sort, days=days or None,
-                                           limit=max(1, min(max_results, 10)))
+                                           limit=max(1, min(max_results, 8)))
             if not stories:
                 return f"No Hacker News stories matched '{query}'. Try fewer or broader keywords."
             _remember_stories(ctx, stories)
@@ -168,16 +168,16 @@ def make_hn_tools(ctx: ToolContext) -> list:
 
         return await ctx.call("get_front_page", {"max_results": max_results}, body)
 
-    async def get_story_comments(story_id: str, max_comments: int = 8) -> str:
+    async def get_story_comments(story_id: str, max_comments: int = 6) -> str:
         """Read the most discussed top-level comments of a Hacker News story.
 
         Args:
             story_id: The numeric story_id shown in search results.
-            max_comments: Number of comments to return, 1-10.
+            max_comments: Number of comments to return, 1-8.
         """
         async def body() -> str:
             thread = await story_thread(ctx.http, story_id.strip(),
-                                        limit=max(1, min(max_comments, 10)))
+                                        limit=max(1, min(max_comments, 8)))
             text = format_thread(thread)
             ctx.remember(thread["discussion"], SourceMeta(
                 title=f"HN discussion: {thread['title']}", source_type="hackernews",
@@ -187,4 +187,4 @@ def make_hn_tools(ctx: ToolContext) -> list:
 
         return await ctx.call("get_story_comments", {"story_id": story_id}, body)
 
-    return [search_hackernews, get_front_page, get_story_comments, record_findings_tool(ctx)]
+    return [search_hackernews, get_front_page, get_story_comments]

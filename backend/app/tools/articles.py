@@ -13,7 +13,8 @@ from typing import Any
 import newspaper
 
 from app.evidence import normalize_url
-from app.tools.base import SourceMeta, ToolContext, record_findings_tool
+from app.textutil import terms
+from app.tools.base import SourceMeta, ToolContext
 from app.tools.hackernews import format_thread, hn_item_id, story_thread
 
 MAX_CHARS = 3200
@@ -23,20 +24,10 @@ USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 )
-_WORD_RE = re.compile(r"[a-z0-9]{3,}")
-_STOPWORDS = frozenset(
-    "the and for are but not you all any can had her was one our out has have this that with "
-    "from they will what when who how why which their there about into more than then them "
-    "these those some such only also just like over most other very been were does did".split()
-)
 
 
 class ExtractionError(RuntimeError):
     pass
-
-
-def _terms(text: str) -> set[str]:
-    return {w for w in _WORD_RE.findall(text.lower()) if w not in _STOPWORDS}
 
 
 def select_passages(text: str, focus: str, max_chars: int = MAX_CHARS) -> tuple[str, bool]:
@@ -49,10 +40,10 @@ def select_passages(text: str, focus: str, max_chars: int = MAX_CHARS) -> tuple[
     if sum(len(p) for p in paragraphs) <= max_chars:
         return "\n\n".join(paragraphs), False
 
-    focus_terms = _terms(focus)
+    focus_terms = terms(focus)
     scored = []
     for index, paragraph in enumerate(paragraphs):
-        overlap = len(focus_terms & _terms(paragraph))
+        overlap = len(focus_terms & terms(paragraph))
         has_figure = bool(re.search(r"\d", paragraph))
         scored.append((overlap + (0.5 if has_figure else 0), index))
 
@@ -132,4 +123,4 @@ def make_article_tools(ctx: ToolContext) -> list:
 
         return await ctx.call("read_article", {"url": url, "focus": focus}, body)
 
-    return [read_article, record_findings_tool(ctx)]
+    return [read_article]
