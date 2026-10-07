@@ -4,6 +4,8 @@ The same team as the hosted variant, running entirely on llama3.2 through
 Ollama: no API key, and no LLM call leaves the machine.
 """
 
+from pathlib import Path
+
 import streamlit as st
 from agno.agent import Agent
 from agno.models.ollama import Ollama
@@ -12,6 +14,10 @@ from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from agno.tools.newspaper4k import Newspaper4kTools
+from dotenv import load_dotenv
+
+# Picks up OLLAMA_HOST, if set, before the Ollama client is created.
+load_dotenv(Path(__file__).with_name(".env"))
 
 MODEL_ID = "llama3.2"
 

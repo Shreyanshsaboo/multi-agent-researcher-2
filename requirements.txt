@@ -1,3 +1,8 @@
 streamlit
 agno>=2.2.10
-openai
+groq
+ollama
+ddgs
+newspaper4k
+lxml_html_clean
+python-dotenv

@@ -4,7 +4,7 @@ A Streamlit application that coordinates a team of specialized LLM agents to res
 
 I built this to explore how far task decomposition gets you in practice. A single agent given search, extraction, and synthesis responsibilities all at once tends to drop steps or hallucinate sources. Here each capability lives in its own narrowly scoped agent with exactly one tool, and an orchestrator decides who runs, in what order, and how to merge the results.
 
-The project ships in two variants: a hosted version backed by the OpenAI API, and a fully local version backed by Ollama.
+The project ships in two variants: a hosted version backed by the Groq API, and a fully local version backed by Ollama.
 
 ## Contents
 
@@ -68,7 +68,7 @@ The system is four layers: a thin presentation layer, a coordination layer that 
 +------------------+      +------------------+      +------------------+
 
 Inference backend, shared by the team and every member agent:
-    OpenAIChat gpt-4o-mini        or        Ollama llama3.2
+    Groq gpt-oss-120b             or        Ollama llama3.2
 ```
 
 The orchestrator is the only component that knows the full task. Member agents receive a delegated subtask and have no knowledge of each other, which keeps their prompts short and their tool selection unambiguous. Agents hold no state between steps; anything a downstream agent needs is passed to it explicitly by the orchestrator.
@@ -124,13 +124,13 @@ User            Streamlit             Team              HN Researcher          A
 
 | File | Model | Notes |
 |---|---|---|
-| `research_agent.py` | `gpt-4o-mini` via OpenAI API | Key is entered in the UI at runtime and never written to disk |
+| `research_agent.py` | `openai/gpt-oss-120b` via Groq API | Key is read from `.env`, or entered in the UI if unset |
 | `research_agent_llama3.py` | `llama3.2` via Ollama | Runs entirely locally with no API key and no network LLM calls |
 
 ## Requirements
 
 - Python 3.8 or later
-- An OpenAI API key for the hosted variant
+- A Groq API key for the hosted variant ([console.groq.com/keys](https://console.groq.com/keys))
 - A local [Ollama](https://ollama.com/) install with `llama3.2` pulled, for the local variant
 
 ## Installation
@@ -158,7 +158,7 @@ Hosted variant:
 streamlit run research_agent.py
 ```
 
-Enter your OpenAI API key in the field at the top of the page, then submit a query.
+Set `GROQ_API_KEY` in `.env` (copy `.env.example`), or leave it empty and enter the key in the field at the top of the page. Then submit a query.
 
 Local variant:
 
@@ -166,7 +166,7 @@ Local variant:
 streamlit run research_agent_llama3.py
 ```
 
-No key required. Make sure the Ollama daemon is running first.
+No key required. Make sure the Ollama daemon is running first. Set `OLLAMA_HOST` in `.env` to use a non-default daemon address.
 
 ### Example queries
 
@@ -176,10 +176,10 @@ No key required. Make sure the Ollama daemon is running first.
 
 ## Configuration
 
-Each variant defines its model in one place, at the top of the file. To trade cost for capability in the hosted variant:
+Each variant defines its model in one place, at the top of the file. To trade capability for speed and rate-limit headroom in the hosted variant:
 
 ```python
-MODEL_ID = "gpt-4o"
+MODEL_ID = "openai/gpt-oss-20b"
 ```
 
 Agents run with `debug_mode=True` and `show_members_responses=True`, which surfaces each member's intermediate output. Both are useful while tracing a delegation path and should be turned off for a clean end-user report.
@@ -190,9 +190,10 @@ Agents run with `debug_mode=True` and `show_members_responses=True`, which surfa
 
 ```
 multi-agent-researcher/
-├── research_agent.py           OpenAI-backed variant
+├── research_agent.py           Groq-backed variant
 ├── research_agent_llama3.py    Ollama-backed local variant
 ├── requirements.txt
+├── .env.example                Template for .env (API key, Ollama host)
 └── README.md
 ```
 

@@ -1,4 +1,4 @@
-"""Multi-Agent AI Researcher, backed by the OpenAI API.
+"""Multi-Agent AI Researcher, backed by the Groq API.
 
 A Streamlit front end over an Agno team. An orchestrator delegates story
 discovery, article extraction, and web enrichment to three single-tool agents,
@@ -6,17 +6,21 @@ then merges their output into one cited report.
 """
 
 import os
+from pathlib import Path
 
 import streamlit as st
 from agno.agent import Agent
-from agno.models.openai import OpenAIChat
+from agno.models.groq import Groq
 from agno.run.agent import RunOutput
 from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from agno.tools.newspaper4k import Newspaper4kTools
+from dotenv import load_dotenv
 
-MODEL_ID = "gpt-4o-mini"
+load_dotenv(Path(__file__).with_name(".env"))
+
+MODEL_ID = "openai/gpt-oss-120b"
 
 # The workflow definition. Reordering these lines reorders the pipeline, which
 # is the fastest way to try a different research strategy.
@@ -38,21 +42,21 @@ def build_team() -> Team:
     """
     hn_researcher = Agent(
         name="HackerNews Researcher",
-        model=OpenAIChat(id=MODEL_ID),
+        model=Groq(id=MODEL_ID),
         role="Gets top stories from hackernews.",
         tools=[HackerNewsTools()],
     )
 
     article_reader = Agent(
         name="Article Reader",
-        model=OpenAIChat(id=MODEL_ID),
+        model=Groq(id=MODEL_ID),
         role="Reads articles from URLs.",
         tools=[Newspaper4kTools()],
     )
 
     web_searcher = Agent(
         name="Web Searcher",
-        model=OpenAIChat(id=MODEL_ID),
+        model=Groq(id=MODEL_ID),
         role="Searches the web for information on a topic",
         tools=[DuckDuckGoTools()],
         # Models have no reliable sense of the current date, so recency-sensitive
@@ -62,7 +66,7 @@ def build_team() -> Team:
 
     return Team(
         name="HackerNews Team",
-        model=OpenAIChat(id=MODEL_ID),
+        model=Groq(id=MODEL_ID),
         members=[hn_researcher, web_searcher, article_reader],
         instructions=TEAM_INSTRUCTIONS,
         markdown=True,
@@ -79,10 +83,13 @@ st.caption(
     "discovery, full-text extraction, and web enrichment, merged into one report."
 )
 
-openai_api_key = st.text_input("OpenAI API Key", type="password")
+# A key in .env skips the prompt; otherwise fall back to asking in the UI.
+groq_api_key = os.getenv("GROQ_API_KEY") or st.text_input(
+    "Groq API Key", type="password"
+)
 
-if openai_api_key:
-    os.environ["OPENAI_API_KEY"] = openai_api_key
+if groq_api_key:
+    os.environ["GROQ_API_KEY"] = groq_api_key
     hackernews_team = build_team()
 
     query = st.text_input("Enter your report query")
