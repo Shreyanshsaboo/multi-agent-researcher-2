@@ -1,5 +1,7 @@
 agno>=3.1
 groq>=1.0
+# Agno's model layer imports openai's error types even for Groq and Ollama.
+openai>=1.0
 ollama>=0.6
 ddgs>=9.0
 newspaper4k>=0.9.3
