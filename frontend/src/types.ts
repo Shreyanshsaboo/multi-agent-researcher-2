@@ -121,6 +121,23 @@ export interface RunResult {
   };
 }
 
+export interface ThreadSummary {
+  thread_id: string;
+  title: string;
+  turns: number;
+  created_at: number;
+  updated_at: number;
+  status: string;
+}
+
+export interface ThreadRun {
+  id: string;
+  query: string;
+  status: string;
+  created_at: number;
+  title: string | null;
+}
+
 export interface RunSummary {
   id: string;
   query: string;
@@ -143,6 +160,8 @@ export type RunEvent = BaseEvent &
     | {
         type: "run_started";
         run_id: string;
+        thread_id?: string;
+        follow_up?: boolean;
         query: string;
         options: RunOptions;
         budget: Budget;
@@ -189,6 +208,7 @@ export type RunEvent = BaseEvent &
         tool_calls: number;
       }
     | { type: "memory"; items: { run_id: string; query: string; title: string; date: string }[] }
+    | { type: "context"; turns: number; carried: string[] }
     | { type: "run_completed"; result: RunResult }
     | { type: "run_failed"; error: string }
   );

@@ -1,184 +1,197 @@
-import { AlertTriangle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Menu } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { AgentGraph } from "./components/AgentGraph";
-import { EvidenceList } from "./components/EvidenceList";
-import { HistoryMenu } from "./components/HistoryMenu";
-import { PlanPanel } from "./components/PlanPanel";
-import { QueryForm } from "./components/QueryForm";
-import { ReportView } from "./components/ReportView";
-import { ReviewPanel } from "./components/ReviewPanel";
-import { StatsBar } from "./components/StatsBar";
-import { Timeline } from "./components/Timeline";
-import { TracePanel } from "./components/TracePanel";
-import { participant } from "./lib/agents";
+import { ActivityDrawer } from "./components/ActivityDrawer";
+import { Answer } from "./components/Answer";
+import { Composer } from "./components/Composer";
+import { HowItWorks } from "./components/HowItWorks";
+import { Sidebar } from "./components/Sidebar";
 import { api } from "./lib/api";
-import { useRun } from "./lib/useRun";
-import type { AgentSpec } from "./types";
+import { useRunView } from "./lib/runStore";
+import type { AgentSpec, RunOptions, ThreadSummary } from "./types";
 
-type Tab = "report" | "sources" | "review" | "trace";
+interface Turn {
+  runId: string;
+  query: string;
+}
 
-const STATUS_LABEL: Record<string, string> = {
-  connecting: "Connecting",
-  running: "Researching",
-  completed: "Done",
-  rejected: "Declined",
-  failed: "Failed",
-};
+const EXAMPLES = [
+  "How are teams cutting LLM inference costs in 2026?",
+  "What do developers think about Rust in the Linux kernel?",
+  "Is SQLite a good choice for production web apps?",
+  "What changed in the EU AI Act rules for general-purpose models?",
+];
 
-function TeamOverview({ specs }: { specs: AgentSpec[] }) {
-  return (
-    <section className="rounded-xl border border-line bg-panel p-4">
-      <h2 className="text-xs font-semibold tracking-wide text-ink-2 uppercase">The team</h2>
-      <p className="mt-1 max-w-3xl text-sm text-ink-2">
-        The coordinator plans the research and decides who acts next. Three researchers work in
-        parallel with their own tools, the writer drafts a cited report, and the critic checks every
-        draft against the evidence and sends it back until it holds up.
-      </p>
-      <div className="mx-auto mt-4 max-w-3xl">
-        <AgentGraph specs={specs} agents={{}} pulses={[]} />
-      </div>
-      <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {specs.map((spec) => {
-          const p = participant(spec.id);
-          const Icon = p.icon;
-          return (
-            <li key={spec.id} className="rounded-lg border border-line p-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex size-7 items-center justify-center rounded-md" style={{ background: `${p.color}22` }}>
-                  <Icon className="size-4" style={{ color: p.color }} aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-ink">{spec.name}</div>
-                  <div className="truncate font-mono text-[11px] text-ink-3">{spec.model}</div>
-                </div>
-              </div>
-              <p className="mt-2 text-[13px] text-ink-2">{spec.role}</p>
-              {spec.tools.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {spec.tools.map((tool) => (
-                    <code key={tool} className="rounded bg-sunken px-1.5 py-px font-mono text-[10.5px] text-ink-2">{tool}</code>
-                  ))}
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
+function setThreadInUrl(threadId: string | null) {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("run");
+  if (threadId) url.searchParams.set("c", threadId);
+  else url.searchParams.delete("c");
+  window.history.replaceState(null, "", url);
 }
 
 export default function App() {
-  const { view, open, start } = useRun();
-  const [tab, setTab] = useState<Tab>("report");
-  const [team, setTeam] = useState<AgentSpec[]>([]);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [specs, setSpecs] = useState<AgentSpec[]>([]);
   const [configured, setConfigured] = useState(true);
+  const [activityRun, setActivityRun] = useState<string | null>(null);
+  const [showAbout, setShowAbout] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [prefill, setPrefill] = useState<{ text: string; key: number }>();
+  const fill = (text: string) => setPrefill({ text, key: Date.now() });
+  const latest = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    api.agents().then((r) => setTeam(r.agents)).catch(() => undefined);
-    api.health().then((h) => setConfigured(h.llm_configured)).catch(() => undefined);
+  const lastRun = turns.at(-1)?.runId ?? null;
+  const lastView = useRunView(lastRun);
+  const busy = lastView.status === "running" || lastView.status === "connecting";
+
+  const refreshThreads = useCallback(() => {
+    api.threads().then((r) => setThreads(r.threads)).catch(() => undefined);
+  }, []);
+
+  const openThread = useCallback(async (id: string) => {
+    setMenuOpen(false);
+    try {
+      const thread = await api.thread(id);
+      setThreadId(thread.thread_id);
+      setTurns(thread.runs.map((r) => ({ runId: r.id, query: r.query })));
+      setThreadInUrl(thread.thread_id);
+    } catch {
+      setThreadInUrl(null);
+    }
   }, []);
 
   useEffect(() => {
-    if (view.status === "completed" || view.status === "rejected") setTab("report");
-  }, [view.status]);
+    refreshThreads();
+    api.agents().then((r) => setSpecs(r.agents)).catch(() => undefined);
+    api.health().then((h) => setConfigured(h.llm_configured)).catch(() => undefined);
+    const params = new URLSearchParams(window.location.search);
+    const thread = params.get("c");
+    const run = params.get("run");
+    if (thread) void openThread(thread);
+    else if (run) api.run(run).then((r) => openThread(r.thread_id)).catch(() => undefined);
+  }, [refreshThreads, openThread]);
 
-  const specs = view.specs.length ? view.specs : team;
-  const live = view.status === "running" || view.status === "connecting";
-  const cited = useMemo(() => new Set(view.result?.cited_ids ?? []), [view.result]);
+  // Refresh the history once an answer is finished.
+  useEffect(() => {
+    if (lastRun && !busy) refreshThreads();
+  }, [lastRun, busy, refreshThreads]);
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "report", label: view.drafts.length > 1 ? `Report (v${view.drafts.length})` : "Report" },
-    { id: "sources", label: `Sources (${view.evidence.length})` },
-    { id: "review", label: `Review (${view.reviews.length})` },
-    { id: "trace", label: "Trace" },
-  ];
+  // Bring the newest question to the top of the view; its answer streams in below it.
+  // Earlier answers replay asynchronously, so look again once they have rendered.
+  useEffect(() => {
+    if (turns.length === 0) return;
+    const scroll = () => latest.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    scroll();
+    const again = setTimeout(scroll, 600);
+    return () => clearTimeout(again);
+  }, [turns.length]);
+
+  function newQuestion() {
+    setThreadId(null);
+    setTurns([]);
+    setMenuOpen(false);
+    setThreadInUrl(null);
+  }
+
+  async function ask(query: string, options: RunOptions) {
+    const { run_id, thread_id } = await api.startRun(query, options, threadId);
+    setThreadId(thread_id);
+    setTurns((t) => [...t, { runId: run_id, query }]);
+    setThreadInUrl(thread_id);
+    refreshThreads();
+  }
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-line bg-panel">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
-          <a href="/" className="flex min-w-0 items-center gap-2.5">
-            <img src="/favicon.svg" alt="" className="size-8" />
-            <div className="min-w-0">
-              <h1 className="text-[15px] font-semibold tracking-tight text-ink">Multi-Agent Researcher</h1>
-              <p className="hidden truncate text-xs text-ink-3 sm:block">
-                Six agents plan, research, write and fact-check a cited report
-              </p>
-            </div>
-          </a>
-          <HistoryMenu onOpen={open} />
-        </div>
-      </header>
+    <div className="flex h-dvh bg-canvas text-ink">
+      <Sidebar
+        threads={threads}
+        activeThread={threadId}
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onNew={newQuestion}
+        onOpen={(id) => void openThread(id)}
+        onAbout={() => setShowAbout(true)}
+      />
 
-      <main className="mx-auto max-w-7xl space-y-5 px-4 py-5">
+      <main className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-3 border-b border-line px-4 py-3 md:hidden">
+          <button onClick={() => setMenuOpen(true)} aria-label="Open menu" className="text-ink-2">
+            <Menu className="size-5" />
+          </button>
+          <span className="font-serif text-[16px]">Multi-Agent Researcher</span>
+        </div>
+
         {!configured && (
-          <p className="flex items-center gap-2 rounded-lg border border-warn/40 bg-warn/5 px-3 py-2 text-sm text-ink-2" role="alert">
-            <AlertTriangle className="size-4 text-warn" aria-hidden />
-            The server has no LLM API key configured, so new runs cannot start. Past runs can still be opened.
+          <p className="border-b border-line bg-sunken px-4 py-2 text-center text-[13px] text-ink-2" role="alert">
+            The server has no model API key configured, so new questions cannot be answered.
           </p>
         )}
 
-        <QueryForm
-          busy={live}
-          onSubmit={async (query, options) => {
-            setTab("report");
-            await start(query, options);
-          }}
-        />
-
-        {!view.runId ? (
-          specs.length > 0 && <TeamOverview specs={specs} />
+        {turns.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-10">
+            <div className="w-full max-w-2xl">
+              <h1 className="text-center font-serif text-3xl tracking-tight text-ink sm:text-[2.1rem]">
+                What would you like to research?
+              </h1>
+              <p className="mx-auto mt-3 max-w-lg text-center text-[15px] leading-relaxed text-ink-3">
+                A team of six agents searches Hacker News and the web, reads the sources, writes an
+                answer and fact-checks it before you see it.
+              </p>
+              <div className="mt-8">
+                <Composer busy={false} followUp={false} autoFocus draft={prefill} onSubmit={ask} />
+              </div>
+              <ul className="mt-6 space-y-1">
+                {EXAMPLES.map((example) => (
+                  <li key={example}>
+                    <button
+                      onClick={() => fill(example)}
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink-2 transition hover:bg-sunken hover:text-ink"
+                    >
+                      {example}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         ) : (
           <>
-            <section className="rounded-xl border border-line bg-panel p-4">
-              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <p className="min-w-0 text-[15px] font-medium text-ink">{view.query || "Loading run…"}</p>
-                <span
-                  className={`text-xs font-medium ${view.status === "failed" ? "text-bad" : view.status === "completed" ? "text-good" : "text-accent"}`}
-                >
-                  {STATUS_LABEL[view.status] ?? view.status}
-                </span>
-              </div>
-              <StatsBar view={view} />
-              {view.status === "failed" && view.error && (
-                <p className="mt-3 text-sm text-bad" role="alert">{view.error}</p>
-              )}
-            </section>
-
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-              <section className="space-y-5 rounded-xl border border-line bg-panel p-4">
-                <AgentGraph specs={specs} agents={view.agents} pulses={view.pulses} />
-                <PlanPanel plan={view.plan} turn={view.planTurn} replanned={view.replanned} />
-              </section>
-              <Timeline entries={view.timeline} live={live} />
-            </div>
-
-            <section className="rounded-xl border border-line bg-panel">
-              <div className="flex gap-1 overflow-x-auto border-b border-line px-3" role="tablist">
-                {tabs.map((t) => (
-                  <button
-                    key={t.id}
-                    role="tab"
-                    aria-selected={tab === t.id}
-                    onClick={() => setTab(t.id)}
-                    className={`-mb-px border-b-2 px-3 py-2.5 text-sm whitespace-nowrap ${tab === t.id ? "border-accent font-medium text-ink" : "border-transparent text-ink-3 hover:text-ink-2"}`}
+            <div className="flex-1 overflow-y-auto">
+              <div className="mx-auto max-w-3xl space-y-10 px-4 pt-8 pb-10">
+                {turns.map((turn, i) => (
+                  <section
+                    key={turn.runId}
+                    ref={i === turns.length - 1 ? latest : undefined}
+                    className="scroll-mt-6 space-y-5"
                   >
-                    {t.label}
-                  </button>
+                    <div className="flex justify-end">
+                      <p className="max-w-[85%] rounded-2xl bg-sunken px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap text-ink">
+                        {turn.query}
+                      </p>
+                    </div>
+                    <Answer
+                      runId={turn.runId}
+                      onShowActivity={setActivityRun}
+                      onRetry={() => fill(turn.query)}
+                    />
+                  </section>
                 ))}
               </div>
-              <div className="p-4 sm:p-6">
-                {tab === "report" && <ReportView view={view} />}
-                {tab === "sources" && <EvidenceList evidence={view.evidence} cited={cited} />}
-                {tab === "review" && <ReviewPanel drafts={view.drafts} reviews={view.reviews} />}
-                {tab === "trace" && <TracePanel view={view} />}
+            </div>
+            <div className="border-t border-line bg-canvas px-4 pt-3 pb-4">
+              <div className="mx-auto max-w-3xl">
+                <Composer busy={busy} followUp draft={prefill} onSubmit={ask} />
               </div>
-            </section>
+            </div>
           </>
         )}
       </main>
+
+      {activityRun && <ActivityDrawer runId={activityRun} onClose={() => setActivityRun(null)} />}
+      {showAbout && <HowItWorks specs={specs} onClose={() => setShowAbout(false)} />}
     </div>
   );
 }

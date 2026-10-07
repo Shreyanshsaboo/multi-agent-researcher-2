@@ -61,7 +61,7 @@ export function ReviewPanel({ drafts, reviews }: { drafts: Draft[]; reviews: Rev
                       {issue.suggestion && <p className="mt-0.5 text-ink-3">Suggestion: {issue.suggestion}</p>}
                       {answer && (
                         <p className="mt-1.5 text-ink-2">
-                          <span className="font-medium" style={{ color: participant("writer").color }}>
+                          <span className="font-medium text-ink">
                             Writer {answer.action}:
                           </span>{" "}
                           {answer.note}
@@ -69,7 +69,7 @@ export function ReviewPanel({ drafts, reviews }: { drafts: Draft[]; reviews: Rev
                       )}
                       {ruling && (
                         <p className="mt-1 text-ink-2">
-                          <span className="font-medium" style={{ color: participant("critic").color }}>
+                          <span className="font-medium text-ink">
                             Critic {ruling.accepted ? "accepted the dispute" : "rejected the dispute"}:
                           </span>{" "}
                           {ruling.note}

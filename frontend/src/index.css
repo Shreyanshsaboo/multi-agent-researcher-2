@@ -14,41 +14,43 @@
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-serif: "Iowan Old Style", "Charter", "Source Serif Pro", Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
+/* A neutral palette: ink on paper. Colour is kept for problems only, and muted. */
 :root {
   color-scheme: light;
-  --canvas: #f5f6f8;
+  --canvas: #ffffff;
   --panel: #ffffff;
-  --sunken: #f0f2f5;
-  --line: #e2e5ea;
-  --ink: #111318;
-  --ink-2: #4a5160;
-  --ink-3: #7c8494;
-  --accent: #7c3aed;
-  --accent-soft: #ede9fe;
-  --good: #16a34a;
-  --warn: #d97706;
-  --bad: #e11d48;
+  --sunken: #f5f5f4;
+  --line: #e7e5e4;
+  --ink: #1c1917;
+  --ink-2: #57534e;
+  --ink-3: #8f8a85;
+  --accent: #1c1917;
+  --accent-soft: #f0efed;
+  --good: #57534e;
+  --warn: #8a6116;
+  --bad: #a3392e;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --canvas: #0b0d11;
-    --panel: #12151b;
-    --sunken: #0e1116;
-    --line: #232833;
-    --ink: #eef0f4;
-    --ink-2: #aab1bf;
-    --ink-3: #6f7788;
-    --accent: #a78bfa;
-    --accent-soft: #2a2140;
-    --good: #4ade80;
-    --warn: #fbbf24;
-    --bad: #fb7185;
+    --canvas: #171615;
+    --panel: #1d1c1b;
+    --sunken: #232221;
+    --line: #2f2d2b;
+    --ink: #ecebe9;
+    --ink-2: #b5b1ac;
+    --ink-3: #7d7873;
+    --accent: #ecebe9;
+    --accent-soft: #2a2827;
+    --good: #b5b1ac;
+    --warn: #c9a15a;
+    --bad: #d98a80;
   }
 }
 
@@ -62,8 +64,8 @@ body {
 
 /* Report typography: the markdown renderer emits plain elements. */
 .prose-report {
-  line-height: 1.7;
-  font-size: 0.95rem;
+  line-height: 1.75;
+  font-size: 0.97rem;
   color: var(--ink);
 }
 .prose-report h2 {
@@ -108,16 +110,3 @@ body {
   text-align: left;
 }
 
-@keyframes pulse-ring {
-  0% { opacity: 0.55; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.18); }
-}
-.node-active-ring {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: pulse-ring 1.4s ease-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .node-active-ring { animation: none; }
-}

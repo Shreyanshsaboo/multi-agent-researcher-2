@@ -58,7 +58,7 @@ function AgentNode({ id, spec, view }: { id: Participant; spec?: AgentSpec; view
   const style = participant(id);
   const Icon = style.icon;
   const status = statusLine(view);
-  const ring = status.tone === "active" ? style.color : status.tone === "wait" ? "var(--warn)" : status.tone === "error" ? "var(--bad)" : null;
+  const ring = status.tone === "active" ? "var(--ink)" : status.tone === "wait" ? "var(--warn)" : status.tone === "error" ? "var(--bad)" : null;
   const left = x - NODE_W / 2;
   const top = y - NODE_H / 2;
   const label = status.text.length > 24 ? `${status.text.slice(0, 23)}…` : status.text;
@@ -68,18 +68,12 @@ function AgentNode({ id, spec, view }: { id: Participant; spec?: AgentSpec; view
   return (
     <g>
       <title>{spec ? `${spec.name}: ${spec.role}\nModel: ${spec.model}${spec.tools.length ? `\nTools: ${spec.tools.join(", ")}` : ""}` : style.label}</title>
-      {ring && (
-        <rect
-          x={left - 4} y={top - 4} width={NODE_W + 8} height={NODE_H + 8} rx={15}
-          fill="none" stroke={ring} strokeWidth={2} className="node-active-ring"
-        />
-      )}
       <rect
         x={left} y={top} width={NODE_W} height={NODE_H} rx={12}
         className="fill-panel" stroke={ring ?? "var(--line)"} strokeWidth={ring ? 1.5 : 1}
       />
-      <circle cx={left + 21} cy={y} r={13} fill={style.color} fillOpacity={0.15} />
-      <Icon x={left + 12} y={y - 9} width={18} height={18} color={style.color} strokeWidth={2} />
+      <circle cx={left + 21} cy={y} r={13} className="fill-sunken" />
+      <Icon x={left + 12} y={y - 9} width={18} height={18} color="var(--ink-2)" strokeWidth={1.75} />
       <text x={left + 40} y={y - 3} className="fill-ink text-[12.5px] font-semibold">{style.label}</text>
       <text x={left + 40} y={y + 14} className={`font-mono text-[11px] ${fellBack ? "fill-warn" : "fill-ink-3"}`}>
         {fellBack ? "↺ " : ""}
@@ -99,7 +93,7 @@ function PulseDot({ pulse }: { pulse: Pulse }) {
   const from = POSITIONS[pulse.from];
   const to = POSITIONS[pulse.to];
   if (!from || !to) return null;
-  const color = participant(pulse.from).color;
+  const color = "var(--ink-2)";
   const vars = { "--x1": `${from.x}px`, "--y1": `${from.y}px`, "--x2": `${to.x}px`, "--y2": `${to.y}px` } as CSSProperties;
   return (
     <g>

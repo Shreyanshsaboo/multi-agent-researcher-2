@@ -1,4 +1,4 @@
-import type { AgentSpec, Budget, Depth, RunOptions, RunSummary } from "../types";
+import type { AgentSpec, Budget, Depth, RunOptions, RunSummary, ThreadRun, ThreadSummary } from "../types";
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
@@ -29,8 +29,14 @@ export const api = {
   agents: () => request<{ agents: AgentSpec[]; budgets: Record<Depth, Budget> }>("/api/agents"),
   health: () => request<{ status: string; provider: string; llm_configured: boolean; active_runs: number }>("/api/health"),
   runs: (limit = 20) => request<{ runs: RunSummary[] }>(`/api/runs?limit=${limit}`),
-  startRun: (query: string, options: RunOptions) =>
-    request<{ run_id: string }>("/api/runs", { method: "POST", body: JSON.stringify({ query, options }) }),
+  threads: (limit = 40) => request<{ threads: ThreadSummary[] }>(`/api/threads?limit=${limit}`),
+  thread: (threadId: string) => request<{ thread_id: string; runs: ThreadRun[] }>(`/api/threads/${threadId}`),
+  run: (runId: string) => request<{ id: string; thread_id: string }>(`/api/runs/${runId}`),
+  startRun: (query: string, options: RunOptions, threadId: string | null) =>
+    request<{ run_id: string; thread_id: string }>("/api/runs", {
+      method: "POST",
+      body: JSON.stringify({ query, options, thread_id: threadId }),
+    }),
   eventsUrl: (runId: string) => `/api/runs/${runId}/events`,
   traceUrl: (runId: string) => `/api/runs/${runId}/trace`,
   reportUrl: (runId: string) => `/api/runs/${runId}/report.md`,

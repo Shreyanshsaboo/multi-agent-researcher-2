@@ -9,20 +9,20 @@ interface ParticipantStyle {
   icon: LucideIcon;
 }
 
-// One hue per agent, used for graph nodes, timeline dots and evidence attributions.
+// Agents are told apart by name and icon, not colour; every agent shares the neutral ink.
 export const PARTICIPANTS: Record<Participant, ParticipantStyle> = {
-  user: { label: "You", short: "You", color: "#64748b", icon: User },
-  orchestrator: { label: "Orchestrator", short: "Orch.", color: "#64748b", icon: Workflow },
-  coordinator: { label: "Coordinator", short: "Coord.", color: "#8b5cf6", icon: Brain },
-  hn_scout: { label: "HN Scout", short: "HN", color: "#f97316", icon: Newspaper },
-  web_researcher: { label: "Web Researcher", short: "Web", color: "#0ea5e9", icon: Globe },
-  article_reader: { label: "Article Reader", short: "Reader", color: "#14b8a6", icon: FileText },
-  writer: { label: "Writer", short: "Writer", color: "#22c55e", icon: PenLine },
-  critic: { label: "Critic", short: "Critic", color: "#f43f5e", icon: ShieldCheck },
+  user: { label: "You", short: "You", color: "var(--ink-2)", icon: User },
+  orchestrator: { label: "Orchestrator", short: "Orch.", color: "var(--ink-2)", icon: Workflow },
+  coordinator: { label: "Coordinator", short: "Coord.", color: "var(--ink-2)", icon: Brain },
+  hn_scout: { label: "HN Scout", short: "HN", color: "var(--ink-2)", icon: Newspaper },
+  web_researcher: { label: "Web Researcher", short: "Web", color: "var(--ink-2)", icon: Globe },
+  article_reader: { label: "Article Reader", short: "Reader", color: "var(--ink-2)", icon: FileText },
+  writer: { label: "Writer", short: "Writer", color: "var(--ink-2)", icon: PenLine },
+  critic: { label: "Critic", short: "Critic", color: "var(--ink-2)", icon: ShieldCheck },
 };
 
 export function participant(id: string): ParticipantStyle {
-  return PARTICIPANTS[id as Participant] ?? { label: id, short: id, color: "#64748b", icon: Workflow };
+  return PARTICIPANTS[id as Participant] ?? { label: id, short: id, color: "var(--ink-2)", icon: Workflow };
 }
 
 export const SOURCE_LABELS: Record<Evidence["source_type"], string> = {

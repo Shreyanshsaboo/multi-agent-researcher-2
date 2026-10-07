@@ -55,7 +55,10 @@ export interface Pulse {
 
 export interface RunView {
   runId: string | null;
+  threadId: string | null;
   query: string;
+  /** Sources carried over from earlier answers in the conversation. */
+  carried: number;
   status: RunStatus;
   startedTs: number | null;
   lastElapsed: number;
@@ -83,7 +86,9 @@ const MAX_PULSES = 8;
 export function initialRun(runId: string | null = null): RunView {
   return {
     runId,
+    threadId: null,
     query: "",
+    carried: 0,
     status: runId ? "connecting" : "idle",
     startedTs: null,
     lastElapsed: 0,
@@ -148,6 +153,7 @@ export function applyEvent(view: RunView, event: RunEvent): RunView {
       return {
         ...base,
         runId: event.run_id,
+        threadId: event.thread_id ?? event.run_id,
         query: event.query,
         status: "running",
         startedTs: event.ts,
@@ -275,6 +281,14 @@ export function applyEvent(view: RunView, event: RunEvent): RunView {
         ...base,
         timeline: [...base.timeline, notice(event, "memory", "coordinator",
           `Recalled ${event.items.length} related past run(s): ${event.items.map((i) => `"${i.query}"`).join(", ")}`)],
+      };
+
+    case "context":
+      return {
+        ...base,
+        carried: event.carried.length,
+        timeline: [...base.timeline, notice(event, "memory", "coordinator",
+          `Carried ${event.carried.length} source(s) over from ${event.turns} earlier answer(s) in this conversation`)],
       };
 
     case "run_completed":
