@@ -27,21 +27,21 @@ AGENT_SPECS: dict[str, AgentSpec] = {
         name="HN Scout",
         kind="researcher",
         role="Finds Hacker News stories and reads their comment threads for practitioner sentiment.",
-        tools=("search_hackernews", "get_front_page", "get_story_comments", "record_findings"),
+        tools=("search_hackernews", "get_front_page", "get_story_comments"),
     ),
     "web_researcher": AgentSpec(
         id="web_researcher",
         name="Web Researcher",
         kind="researcher",
         role="Searches the web and news for facts, official sources and recent developments.",
-        tools=("web_search", "news_search", "record_findings"),
+        tools=("web_search", "news_search"),
     ),
     "article_reader": AgentSpec(
         id="article_reader",
         name="Article Reader",
         kind="researcher",
         role="Reads the full text of the most important sources and extracts facts and figures.",
-        tools=("read_article", "record_findings"),
+        tools=("read_article",),
     ),
     "writer": AgentSpec(
         id="writer",
@@ -54,9 +54,8 @@ AGENT_SPECS: dict[str, AgentSpec] = {
         id="critic",
         name="Critic",
         kind="review",
-        role="Fact-checks each draft against the evidence, rules on the writer's disputes, and "
-             "sends revision requests or research gaps back to the team.",
-        tools=("citation_check",),
+        role="Fact-checks each draft against the evidence and an automated citation check, rules "
+             "on the writer's disputes, and sends revision requests or research gaps back.",
     ),
 }
 
