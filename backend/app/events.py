@@ -9,6 +9,7 @@ import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator, Callable
+from contextvars import ContextVar
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -16,6 +17,10 @@ log = logging.getLogger(__name__)
 TERMINAL_EVENTS = frozenset({"run_completed", "run_failed"})
 
 Sink = Callable[[str, dict[str, Any]], None]
+
+# The agent whose LLM call is in flight, so code far from the run loop (the HTTP
+# client's rate-limit hook) can attribute what it sees to the right agent.
+ACTIVE_AGENT: ContextVar[tuple["RunChannel", str] | None] = ContextVar("active_agent", default=None)
 
 
 class RunChannel:

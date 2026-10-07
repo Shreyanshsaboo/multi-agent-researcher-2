@@ -34,8 +34,8 @@ DEFAULT_MODELS = {
 }
 
 # Only the gpt-oss models take reasoning_effort. Reasoning tokens count against
-# the rate limit, so only the coordinator, which makes the routing calls, gets more.
-REASONING_EFFORT = {"coordinator": "medium"}
+# the per-minute rate limit, and "low" was enough for routing and writing in testing.
+REASONING_EFFORT = "low"
 
 
 @dataclass(frozen=True)
@@ -52,11 +52,11 @@ class Budget:
 
 BUDGETS = {
     "quick": Budget(max_turns=5, max_drafts=2, max_tasks_per_turn=2,
-                    max_findings_per_task=4, max_urls_per_read=2, time_limit_s=180),
+                    max_findings_per_task=4, max_urls_per_read=2, time_limit_s=360),
     "standard": Budget(max_turns=8, max_drafts=3, max_tasks_per_turn=3,
-                       max_findings_per_task=5, max_urls_per_read=3, time_limit_s=300),
+                       max_findings_per_task=5, max_urls_per_read=3, time_limit_s=600),
     "deep": Budget(max_turns=12, max_drafts=4, max_tasks_per_turn=3,
-                   max_findings_per_task=6, max_urls_per_read=3, time_limit_s=480),
+                   max_findings_per_task=6, max_urls_per_read=3, time_limit_s=900),
 }
 
 
@@ -72,9 +72,10 @@ class Settings:
     ollama_host: str | None = None
     ollama_model: str = "llama3.2"
     models: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_MODELS))
-    llm_max_retries: int = 6
+    llm_max_retries: int = 4
     llm_timeout_s: int = 60
-    agent_timeout_s: int = 120
+    # Generous, because on a free tier most of an agent's time is rate-limit waits.
+    agent_timeout_s: int = 240
     max_active_runs: int = 2
     db_path: Path = BACKEND_DIR / "data" / "runs.db"
     frontend_dist: Path = ROOT_DIR / "frontend" / "dist"
@@ -103,9 +104,9 @@ def get_settings() -> Settings:
         ollama_host=os.getenv("OLLAMA_HOST") or None,
         ollama_model=os.getenv("OLLAMA_MODEL", "llama3.2"),
         models=models,
-        llm_max_retries=_env_int("LLM_MAX_RETRIES", 6),
+        llm_max_retries=_env_int("LLM_MAX_RETRIES", 4),
         llm_timeout_s=_env_int("LLM_TIMEOUT_S", 60),
-        agent_timeout_s=_env_int("AGENT_TIMEOUT_S", 120),
+        agent_timeout_s=_env_int("AGENT_TIMEOUT_S", 240),
         max_active_runs=_env_int("MAX_ACTIVE_RUNS", 2),
         db_path=Path(db_path) if db_path else BACKEND_DIR / "data" / "runs.db",
     )
