@@ -1,6 +1,7 @@
 import pytest
 
 import app.llm as llm
+import app.provider as provider
 from app.config import Settings
 from app.events import RunChannel
 
@@ -12,9 +13,9 @@ SETTINGS = Settings(groq_api_key="k", models={
 
 @pytest.fixture(autouse=True)
 def fresh_quota_state():
-    llm._exhausted_until.clear()
+    provider.reset_quota_state()
     yield
-    llm._exhausted_until.clear()
+    provider.reset_quota_state()
 
 
 def test_chain_uses_primary_with_the_other_models_as_fallbacks():
@@ -25,7 +26,7 @@ def test_chain_uses_primary_with_the_other_models_as_fallbacks():
 
 def test_exhausted_primary_is_skipped_and_the_switch_is_traced():
     channel = RunChannel("r")
-    llm.mark_exhausted("big", 600)
+    provider.mark_exhausted("big", 600)
     model, fallbacks = llm.build_model_chain("writer", SETTINGS, channel)
     assert model.id == "small"
     assert [m.id for m in fallbacks.on_rate_limit] == ["big", "other"]
@@ -35,7 +36,7 @@ def test_exhausted_primary_is_skipped_and_the_switch_is_traced():
 
 def test_when_every_model_is_exhausted_the_primary_is_kept():
     for model_id in ("big", "small", "other"):
-        llm.mark_exhausted(model_id, 600)
+        provider.mark_exhausted(model_id, 600)
     model, _ = llm.build_model_chain("critic", SETTINGS)
     assert model.id == "other"
 

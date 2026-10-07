@@ -1,8 +1,6 @@
 """Model factory: one place that maps an agent to its provider, model and fallbacks."""
 
 import asyncio
-import json
-import time
 import weakref
 
 import httpx
@@ -13,56 +11,11 @@ from agno.models.ollama import Ollama
 
 from app.config import REASONING_EFFORT, Settings
 from app.events import ACTIVE_AGENT, RunChannel
+from app.provider import ResilientTransport, is_exhausted
 
 _clients: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, httpx.AsyncClient]" = (
     weakref.WeakKeyDictionary()
 )
-
-# A retry-after longer than this means a daily quota, not a per-minute one:
-# waiting will not help within a run, so the model is skipped until then.
-LONG_WAIT_S = 60
-_exhausted_until: dict[str, float] = {}
-
-
-def mark_exhausted(model_id: str, seconds: float) -> None:
-    _exhausted_until[model_id] = time.monotonic() + seconds
-
-
-def is_exhausted(model_id: str) -> bool:
-    return _exhausted_until.get(model_id, 0) > time.monotonic()
-
-
-def _requested_model(response: httpx.Response) -> str | None:
-    try:
-        return json.loads(response.request.content)["model"]
-    except (ValueError, KeyError, TypeError):
-        return None
-
-
-async def _report_rate_limit(response: httpx.Response) -> None:
-    """Surface 429s in the trace; the Groq client then waits and retries on its own."""
-    if response.status_code != 429:
-        return
-    retry_after = response.headers.get("retry-after")
-    model_id = _requested_model(response)
-    if model_id and retry_after and float(retry_after) > LONG_WAIT_S:
-        mark_exhausted(model_id, float(retry_after))
-    active = ACTIVE_AGENT.get()
-    if active is None:
-        return
-    channel, agent_id = active
-    await response.aread()
-    try:
-        detail = response.json()["error"]["message"]
-    except (ValueError, KeyError, TypeError):
-        detail = ""
-    channel.emit(
-        "rate_limited",
-        agent=agent_id,
-        retry_after_s=float(retry_after) if retry_after else None,
-        detail=detail[:300],
-    )
-    channel.status(agent_id, "waiting", "rate limited by the model provider, retrying")
 
 
 def _shared_http_client() -> httpx.AsyncClient | None:
@@ -73,10 +26,8 @@ def _shared_http_client() -> httpx.AsyncClient | None:
         return None
     client = _clients.get(loop)
     if client is None or client.is_closed:
-        client = httpx.AsyncClient(
-            timeout=httpx.Timeout(60.0, connect=10.0),
-            event_hooks={"response": [_report_rate_limit]},
-        )
+        client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0),
+                                   transport=ResilientTransport())
         _clients[loop] = client
     return client
 
@@ -88,9 +39,8 @@ def _groq(model_id: str, settings: Settings) -> Groq:
     return Groq(
         id=model_id,
         api_key=settings.groq_api_key,
-        # The Groq client retries 429s itself and honours retry-after, which rides
-        # out per-minute limits; a daily limit falls through to the fallback models.
-        max_retries=settings.llm_max_retries,
+        # Retries happen in ResilientTransport instead (see app/provider.py).
+        max_retries=0,
         timeout=settings.llm_timeout_s,
         temperature=0.2,
         request_params=request_params,

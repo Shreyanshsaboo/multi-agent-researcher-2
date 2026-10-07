@@ -72,7 +72,6 @@ class Settings:
     ollama_host: str | None = None
     ollama_model: str = "llama3.2"
     models: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_MODELS))
-    llm_max_retries: int = 4
     llm_timeout_s: int = 60
     # Generous, because on a free tier most of an agent's time is rate-limit waits.
     agent_timeout_s: int = 240
@@ -104,7 +103,6 @@ def get_settings() -> Settings:
         ollama_host=os.getenv("OLLAMA_HOST") or None,
         ollama_model=os.getenv("OLLAMA_MODEL", "llama3.2"),
         models=models,
-        llm_max_retries=_env_int("LLM_MAX_RETRIES", 4),
         llm_timeout_s=_env_int("LLM_TIMEOUT_S", 60),
         agent_timeout_s=_env_int("AGENT_TIMEOUT_S", 240),
         max_active_runs=_env_int("MAX_ACTIVE_RUNS", 2),
