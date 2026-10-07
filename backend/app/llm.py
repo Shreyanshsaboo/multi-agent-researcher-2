@@ -1,6 +1,8 @@
-"""Model factory: one place that maps an agent to its provider and model."""
+"""Model factory: one place that maps an agent to its provider, model and fallbacks."""
 
 import asyncio
+import json
+import time
 import weakref
 
 import httpx
@@ -10,22 +12,45 @@ from agno.models.groq import Groq
 from agno.models.ollama import Ollama
 
 from app.config import REASONING_EFFORT, Settings
-from app.events import ACTIVE_AGENT
+from app.events import ACTIVE_AGENT, RunChannel
 
 _clients: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, httpx.AsyncClient]" = (
     weakref.WeakKeyDictionary()
 )
+
+# A retry-after longer than this means a daily quota, not a per-minute one:
+# waiting will not help within a run, so the model is skipped until then.
+LONG_WAIT_S = 60
+_exhausted_until: dict[str, float] = {}
+
+
+def mark_exhausted(model_id: str, seconds: float) -> None:
+    _exhausted_until[model_id] = time.monotonic() + seconds
+
+
+def is_exhausted(model_id: str) -> bool:
+    return _exhausted_until.get(model_id, 0) > time.monotonic()
+
+
+def _requested_model(response: httpx.Response) -> str | None:
+    try:
+        return json.loads(response.request.content)["model"]
+    except (ValueError, KeyError, TypeError):
+        return None
 
 
 async def _report_rate_limit(response: httpx.Response) -> None:
     """Surface 429s in the trace; the Groq client then waits and retries on its own."""
     if response.status_code != 429:
         return
+    retry_after = response.headers.get("retry-after")
+    model_id = _requested_model(response)
+    if model_id and retry_after and float(retry_after) > LONG_WAIT_S:
+        mark_exhausted(model_id, float(retry_after))
     active = ACTIVE_AGENT.get()
     if active is None:
         return
     channel, agent_id = active
-    retry_after = response.headers.get("retry-after")
     await response.aread()
     try:
         detail = response.json()["error"]["message"]
@@ -73,13 +98,6 @@ def _groq(model_id: str, settings: Settings) -> Groq:
     )
 
 
-def build_model(agent_id: str, settings: Settings) -> Model:
-    model_id = settings.model_for(agent_id)
-    if settings.llm_provider == "ollama":
-        return Ollama(id=model_id, host=settings.ollama_host)
-    return _groq(model_id, settings)
-
-
 def _report_fallback(primary: str, fallback: str, error: Exception) -> None:
     active = ACTIVE_AGENT.get()
     if active is None:
@@ -89,17 +107,25 @@ def _report_fallback(primary: str, fallback: str, error: Exception) -> None:
                  detail=str(error)[:300])
 
 
-def build_fallbacks(agent_id: str, settings: Settings) -> FallbackConfig | None:
-    """When an agent's model is rate limited past its retries, try the team's other models.
+def build_model_chain(
+    agent_id: str, settings: Settings, channel: RunChannel | None = None
+) -> tuple[Model, FallbackConfig | None]:
+    """The agent's model plus the team's other models as rate-limit fallbacks.
 
     Limits are per model, so a model that is out of tokens for the day does not
-    take every agent that uses it down with it.
+    take every agent that uses it down with it. A model known to be exhausted is
+    skipped up front rather than retried on every call.
     """
-    if settings.llm_provider == "ollama":
-        return None
     primary = settings.model_for(agent_id)
-    others = [m for m in dict.fromkeys(settings.models.values()) if m != primary]
-    if not others:
-        return None
-    return FallbackConfig(on_rate_limit=[_groq(m, settings) for m in others],
-                          callback=_report_fallback)
+    if settings.llm_provider == "ollama":
+        return Ollama(id=primary, host=settings.ollama_host), None
+
+    order = [primary] + [m for m in dict.fromkeys(settings.models.values()) if m != primary]
+    chosen = next((m for m in order if not is_exhausted(m)), primary)
+    if chosen != primary and channel is not None:
+        channel.emit("model_fallback", agent=agent_id, primary=primary, fallback=chosen,
+                     detail=f"{primary} is out of its daily token quota")
+    rest = [m for m in order if m != chosen]
+    fallbacks = FallbackConfig(on_rate_limit=[_groq(m, settings) for m in rest],
+                               callback=_report_fallback) if rest else None
+    return _groq(chosen, settings), fallbacks

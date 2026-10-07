@@ -23,7 +23,7 @@ from app.agents.runtime import AgentFailure, run_agent
 from app.config import Budget, Settings
 from app.events import RunChannel
 from app.evidence import EvidenceStore
-from app.llm import build_fallbacks, build_model
+from app.llm import build_model_chain
 from app.schemas import TaskResult, TaskSpec
 from app.tools import Finding, ToolContext, make_article_tools, make_hn_tools, make_web_tools
 
@@ -192,10 +192,11 @@ class WorkerAgent:
         return "\n".join(parts)
 
     def _make_agent(self, ctx: ToolContext) -> Agent:
+        model, fallbacks = build_model_chain(self.agent_id, self.settings, self.channel)
         return Agent(
             name=self.profile.name,
-            model=build_model(self.agent_id, self.settings),
-            fallback_config=build_fallbacks(self.agent_id, self.settings),
+            model=model,
+            fallback_config=fallbacks,
             instructions=PROTOCOL.format(name=self.profile.name, specialty=self.profile.specialty,
                                          max_findings=self.budget.max_findings_per_task),
             tools=self.profile.make_tools(ctx),

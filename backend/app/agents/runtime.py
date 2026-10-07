@@ -69,6 +69,7 @@ async def run_agent(
     channel.emit(
         "metrics",
         agent=agent_id,
+        model=output.model,
         input_tokens=reply.input_tokens,
         output_tokens=reply.output_tokens,
         duration_s=reply.duration_s,

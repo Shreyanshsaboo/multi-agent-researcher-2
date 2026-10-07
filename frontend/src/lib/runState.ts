@@ -18,6 +18,8 @@ export type RunStatus = "idle" | "connecting" | "running" | "completed" | "rejec
 export interface AgentView {
   state: string;
   detail: string;
+  /** The model that actually served the agent's last call, if it was not the configured one. */
+  model?: string;
   tokens: number;
   calls: number;
   toolCalls: number;
@@ -244,6 +246,7 @@ export function applyEvent(view: RunView, event: RunEvent): RunView {
     case "model_fallback":
       return {
         ...base,
+        agents: patchAgent(base, event.agent, { model: event.fallback }),
         timeline: [...base.timeline, notice(event, "fallback", event.agent,
           `Switched model: ${event.primary} → ${event.fallback}`)],
       };
@@ -262,6 +265,7 @@ export function applyEvent(view: RunView, event: RunEvent): RunView {
         agents: patchAgent(base, event.agent, {
           tokens: current.tokens + event.input_tokens + event.output_tokens,
           calls: current.calls + 1,
+          model: event.model ?? current.model,
         }),
       };
     }

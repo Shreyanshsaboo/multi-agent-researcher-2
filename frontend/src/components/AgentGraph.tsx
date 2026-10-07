@@ -62,6 +62,8 @@ function AgentNode({ id, spec, view }: { id: Participant; spec?: AgentSpec; view
   const left = x - NODE_W / 2;
   const top = y - NODE_H / 2;
   const label = status.text.length > 24 ? `${status.text.slice(0, 23)}…` : status.text;
+  const model = view?.model ?? spec?.model ?? "";
+  const fellBack = !!spec && !!view?.model && view.model !== spec.model;
 
   return (
     <g>
@@ -79,8 +81,9 @@ function AgentNode({ id, spec, view }: { id: Participant; spec?: AgentSpec; view
       <circle cx={left + 21} cy={y} r={13} fill={style.color} fillOpacity={0.15} />
       <Icon x={left + 12} y={y - 9} width={18} height={18} color={style.color} strokeWidth={2} />
       <text x={left + 40} y={y - 3} className="fill-ink text-[12.5px] font-semibold">{style.label}</text>
-      <text x={left + 40} y={y + 14} className="fill-ink-3 font-mono text-[11px]">
-        {spec ? spec.model.replace(/^.*\//, "") : ""}
+      <text x={left + 40} y={y + 14} className={`font-mono text-[11px] ${fellBack ? "fill-warn" : "fill-ink-3"}`}>
+        {fellBack ? "↺ " : ""}
+        {model.replace(/^.*\//, "")}
       </text>
       <text
         x={x} y={top + NODE_H + 17} textAnchor="middle"

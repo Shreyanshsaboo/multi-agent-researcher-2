@@ -12,7 +12,7 @@ from agno.agent import Agent
 from app.agents.runtime import run_structured
 from app.config import Settings
 from app.events import RunChannel
-from app.llm import build_fallbacks, build_model
+from app.llm import build_model_chain
 from app.schemas import Draft, WriterOutput
 from app.state import RunState
 
@@ -68,10 +68,11 @@ class WriterAgent:
         self.channel = channel
 
     def _make_agent(self) -> Agent:
+        model, fallbacks = build_model_chain(self.agent_id, self.settings, self.channel)
         return Agent(
             name="Writer",
-            model=build_model(self.agent_id, self.settings),
-            fallback_config=build_fallbacks(self.agent_id, self.settings),
+            model=model,
+            fallback_config=fallbacks,
             instructions=INSTRUCTIONS,
             output_schema=WriterOutput,
             telemetry=False,

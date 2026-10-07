@@ -182,6 +182,7 @@ export type RunEvent = BaseEvent &
     | {
         type: "metrics";
         agent: AgentId;
+        model?: string | null;
         input_tokens: number;
         output_tokens: number;
         duration_s: number;
