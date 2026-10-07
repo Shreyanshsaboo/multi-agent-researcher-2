@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .DS_Store
 .env
+.pytest_cache/
+backend/data/
+node_modules/
+frontend/dist/
+*.log
