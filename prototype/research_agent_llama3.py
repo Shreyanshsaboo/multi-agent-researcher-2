@@ -1,16 +1,14 @@
-"""Multi-Agent AI Researcher, backed by the Groq API.
+"""Multi-Agent AI Researcher, backed by a local Ollama model.
 
-A Streamlit front end over an Agno team. An orchestrator delegates story
-discovery, article extraction, and web enrichment to three single-tool agents,
-then merges their output into one cited report.
+The same team as the hosted variant, running entirely on llama3.2 through
+Ollama: no API key, and no LLM call leaves the machine.
 """
 
-import os
 from pathlib import Path
 
 import streamlit as st
 from agno.agent import Agent
-from agno.models.groq import Groq
+from agno.models.ollama import Ollama
 from agno.run.agent import RunOutput
 from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
@@ -18,9 +16,15 @@ from agno.tools.hackernews import HackerNewsTools
 from agno.tools.newspaper4k import Newspaper4kTools
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).with_name(".env"))
+# Picks up OLLAMA_HOST, if set, before the Ollama client is created.
+# The .env file lives in the repository root, one level up.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-MODEL_ID = "openai/gpt-oss-120b"
+MODEL_ID = "llama3.2"
+
+# Local models tend to pad delegated subtask responses, which inflates the
+# orchestrator's context and degrades the final synthesis.
+MAX_TOKENS = 1024
 
 # The workflow definition. Reordering these lines reorders the pipeline, which
 # is the fastest way to try a different research strategy.
@@ -42,21 +46,21 @@ def build_team() -> Team:
     """
     hn_researcher = Agent(
         name="HackerNews Researcher",
-        model=Groq(id=MODEL_ID),
+        model=Ollama(id=MODEL_ID, max_tokens=MAX_TOKENS),
         role="Gets top stories from hackernews.",
         tools=[HackerNewsTools()],
     )
 
     article_reader = Agent(
         name="Article Reader",
-        model=Groq(id=MODEL_ID),
+        model=Ollama(id=MODEL_ID, max_tokens=MAX_TOKENS),
         role="Reads articles from URLs.",
         tools=[Newspaper4kTools()],
     )
 
     web_searcher = Agent(
         name="Web Searcher",
-        model=Groq(id=MODEL_ID),
+        model=Ollama(id=MODEL_ID, max_tokens=MAX_TOKENS),
         role="Searches the web for information on a topic",
         tools=[DuckDuckGoTools()],
         # Models have no reliable sense of the current date, so recency-sensitive
@@ -66,7 +70,7 @@ def build_team() -> Team:
 
     return Team(
         name="HackerNews Team",
-        model=Groq(id=MODEL_ID),
+        model=Ollama(id=MODEL_ID, max_tokens=MAX_TOKENS),
         members=[hn_researcher, web_searcher, article_reader],
         instructions=TEAM_INSTRUCTIONS,
         markdown=True,
@@ -77,22 +81,15 @@ def build_team() -> Team:
     )
 
 
-st.title("Multi-Agent AI Researcher")
+st.title("Multi-Agent AI Researcher (Llama 3)")
 st.caption(
-    "Research a topic on HackerNews with a team of specialized agents: story "
-    "discovery, full-text extraction, and web enrichment, merged into one report."
+    "Research a topic on HackerNews with a team of specialized agents, running "
+    "locally through Ollama."
 )
 
-# A key in .env skips the prompt; otherwise fall back to asking in the UI.
-groq_api_key = os.getenv("GROQ_API_KEY") or st.text_input(
-    "Groq API Key", type="password"
-)
+hackernews_team = build_team()
 
-if groq_api_key:
-    os.environ["GROQ_API_KEY"] = groq_api_key
-    hackernews_team = build_team()
-
-    query = st.text_input("Enter your report query")
-    if query:
-        response: RunOutput = hackernews_team.run(query, stream=False)
-        st.write(response.content)
+query = st.text_input("Enter your report query")
+if query:
+    response: RunOutput = hackernews_team.run(query, stream=False)
+    st.write(response.content)

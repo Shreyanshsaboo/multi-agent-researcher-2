@@ -1,5 +1,10 @@
 # Multi-Agent AI Researcher
 
+> **v1 prototype, kept for reference.** This folder holds the first version of the project: one
+> Streamlit script per model backend, built on Agno's `Team`. It was superseded by the six-agent
+> system in the repository root; see the [main README](../README.md). To run it, work from this
+> folder: `pip install -r requirements.txt`, then `streamlit run research_agent.py`.
+
 A Streamlit application that coordinates a team of specialized LLM agents to research a topic on HackerNews, read the underlying articles, enrich them with web search, and return a single cited report.
 
 I built this to explore how far task decomposition gets you in practice. A single agent given search, extraction, and synthesis responsibilities all at once tends to drop steps or hallucinate sources. Here each capability lives in its own narrowly scoped agent with exactly one tool, and an orchestrator decides who runs, in what order, and how to merge the results.
