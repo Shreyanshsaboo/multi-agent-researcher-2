@@ -184,7 +184,7 @@ export type RunEvent = BaseEvent &
     | { type: "draft"; draft: Draft }
     | { type: "review"; review: Review }
     | { type: "guardrail"; agent: Participant; rule: string; detail: string; task_id?: string }
-    | { type: "rate_limited"; agent: AgentId; retry_after_s: number | null; detail: string }
+    | { type: "rate_limited"; agent: AgentId; retry_after_s: number | null; detail: string; model?: string | null }
     | { type: "model_fallback"; agent: AgentId; primary: string; fallback: string; detail: string }
     | { type: "agent_error"; agent: AgentId; error: string }
     | {
@@ -195,6 +195,8 @@ export type RunEvent = BaseEvent &
         output_tokens: number;
         duration_s: number;
         tool_calls: number;
+        /** Calls per model, present when some calls ran on another team model. */
+        served_by?: Record<string, number>;
       }
     | { type: "memory"; items: { run_id: string; query: string; title: string; date: string }[] }
     | { type: "context"; turns: number; carried: string[] }
