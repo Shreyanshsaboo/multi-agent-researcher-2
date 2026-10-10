@@ -17,6 +17,7 @@ from agno.run.base import RunStatus
 from pydantic import BaseModel, ValidationError
 
 from app.events import ACTIVE_AGENT, RunChannel
+from app.provider import CALL_LOG, CallLog
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -46,6 +47,8 @@ async def run_agent(
     agent: Agent, prompt: str, *, channel: RunChannel, agent_id: str, timeout: float
 ) -> AgentReply:
     token = ACTIVE_AGENT.set((channel, agent_id))
+    log = CallLog()
+    log_token = CALL_LOG.set(log)
     try:
         output = await asyncio.wait_for(agent.arun(prompt), timeout)
     except TimeoutError:
@@ -53,6 +56,7 @@ async def run_agent(
     except Exception as exc:
         raise AgentFailure(f"{agent_id} crashed: {type(exc).__name__}: {exc}") from exc
     finally:
+        CALL_LOG.reset(log_token)
         ACTIVE_AGENT.reset(token)
 
     if output.status == RunStatus.error:
@@ -66,6 +70,10 @@ async def run_agent(
         output_tokens=getattr(metrics, "output_tokens", 0) or 0,
         duration_s=round(getattr(metrics, "duration", 0) or 0, 2),
     )
+    extra = {}
+    if set(log.served) - {output.model}:
+        # Some calls went to another team model while this one was out of tokens.
+        extra["served_by"] = dict(log.served)
     channel.emit(
         "metrics",
         agent=agent_id,
@@ -74,6 +82,7 @@ async def run_agent(
         output_tokens=reply.output_tokens,
         duration_s=reply.duration_s,
         tool_calls=len(reply.tools),
+        **extra,
     )
     return reply
 

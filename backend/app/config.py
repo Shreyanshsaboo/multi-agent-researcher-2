@@ -33,6 +33,12 @@ DEFAULT_MODELS = {
     "critic": "qwen/qwen3.8-27b",
 }
 
+# On the free tier qwen also caps output at 1,000 tokens a minute, and Groq refuses
+# a call whose expected output exceeds that, judged by recent replies. So qwen never
+# takes the writer's long drafts: one would stall the critic, which only runs on qwen.
+OUTPUT_CAPPED_MODELS = frozenset({"qwen/qwen3.8-27b"})
+LONG_REPLY_AGENTS = frozenset({"writer"})
+
 # Only the gpt-oss models take reasoning_effort. Reasoning tokens count against
 # the per-minute rate limit, and "low" was enough for routing and writing in testing.
 REASONING_EFFORT = "low"
@@ -87,6 +93,23 @@ class Settings:
         if self.llm_provider == "ollama":
             return self.ollama_model
         return self.models[agent_id]
+
+    def alternate_models(self, agent_id: str) -> list[str]:
+        """Team models that may take an agent's calls while its own is out of tokens.
+
+        The critic only borrows from model families the writer does not use, so a
+        draft is never reviewed by the family that wrote it.
+        """
+        if self.llm_provider == "ollama" or agent_id not in self.models:
+            return []
+        primary = self.models[agent_id]
+        others = [m for m in dict.fromkeys(self.models.values()) if m != primary]
+        if agent_id in LONG_REPLY_AGENTS:
+            others = [m for m in others if m not in OUTPUT_CAPPED_MODELS]
+        if agent_id == "critic":
+            writer_family = self.models["writer"].split("/")[0]
+            others = [m for m in others if m.split("/")[0] != writer_family]
+        return others
 
 
 @lru_cache

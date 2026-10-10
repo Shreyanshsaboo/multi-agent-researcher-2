@@ -4,9 +4,13 @@ import httpx
 import pytest
 
 import app.provider as provider
+from app.config import Settings
 from app.events import ACTIVE_AGENT, RunChannel
 
-REQUEST = {"model": "qwen/qwen3.8-27b", "messages": []}
+QWEN, BIG = "qwen/qwen3.8-27b", "openai/gpt-oss-120b"
+# About the size of a worker's second step: its prompt plus a few search results.
+REQUEST = {"model": QWEN, "messages": [{"role": "user", "content": "x" * 7000}]}
+NEED = len(json.dumps(REQUEST)) / provider.CHARS_PER_TOKEN + provider.REPLY_ALLOWANCE
 
 
 def scripted(*responses):
@@ -21,14 +25,36 @@ def scripted(*responses):
     return httpx.MockTransport(handler), seen
 
 
-def limited(retry_after: float, scope: str = "input tokens per minute (ITPM)") -> httpx.Response:
-    body = {"error": {"message": f"Rate limit reached on {scope}", "code": "rate_limit_exceeded"}}
+def limited(retry_after: float, scope: str = "input tokens per minute (ITPM)",
+            figures: str = "") -> httpx.Response:
+    body = {"error": {"message": f"Rate limit reached on {scope}{figures}", "code": "rate_limit_exceeded"}}
     return httpx.Response(429, headers={"retry-after": str(retry_after)}, json=body)
 
 
-OK = httpx.Response(200, json={"choices": []})
+def ok(remaining: int | None = None) -> httpx.Response:
+    headers = {}
+    if remaining is not None:
+        headers = {"x-ratelimit-limit-tokens": "8000", "x-ratelimit-remaining-tokens": str(remaining)}
+    return httpx.Response(200, headers=headers, json={"choices": []})
+
+
 BAD_TOOL_CALL = httpx.Response(400, json={"error": {"message": "Failed to parse tool call arguments as JSON",
                                                   "code": "tool_use_failed"}})
+
+
+class Clock:
+    """Time that only moves when the transport sleeps."""
+
+    def __init__(self):
+        self.now = 1000.0
+        self.waits: list[float] = []
+
+    def __call__(self):
+        return self.now
+
+    async def sleep(self, seconds):
+        self.waits.append(seconds)
+        self.now += seconds
 
 
 @pytest.fixture
@@ -36,9 +62,17 @@ def channel():
     provider.reset_quota_state()
     channel = RunChannel("r")
     token = ACTIVE_AGENT.set((channel, "web_researcher"))
+    log_token = provider.CALL_LOG.set(provider.CallLog())
     yield channel
+    provider.CALL_LOG.reset(log_token)
     ACTIVE_AGENT.reset(token)
     provider.reset_quota_state()
+
+
+def transport(upstream, clock=None, alternates=()):
+    clock = clock or Clock()
+    return provider.ResilientTransport(upstream, sleep=clock.sleep, clock=clock,
+                                       alternates=lambda agent_id: list(alternates))
 
 
 async def send(transport):
@@ -46,36 +80,83 @@ async def send(transport):
         return await client.post("https://api.example.com/chat", content=json.dumps(REQUEST))
 
 
-async def test_per_minute_limit_waits_past_retry_after_then_resends(channel):
-    upstream, seen = scripted(limited(10), OK)
-    waits = []
+async def test_rejected_request_is_counted_as_spent_before_resending(channel):
+    # Groq charges the rejected 3,194 tokens too, so the retry-after it gives is too short:
+    # resending then is rejected again, forever. The wait has to cover the rejected request.
+    figures = ": Limit 7000, Used 6173, Requested 3194. Please try again in 20.29s."
+    upstream, seen = scripted(limited(20.3, figures=figures), ok())
+    clock = Clock()
 
-    async def fake_sleep(seconds):
-        waits.append(seconds)
-
-    response = await send(provider.ResilientTransport(upstream, sleep=fake_sleep))
+    response = await send(transport(upstream, clock))
     assert response.status_code == 200
     assert len(seen) == 2 and seen[0].content == seen[1].content
-    assert waits[0] > 10 * 1.15
+    [wait] = clock.waits
+    level = 7000 - 6173 - 3194
+    assert wait == pytest.approx((NEED - level) / (7000 / 60) + provider.WAIT_MARGIN_S)
+    assert wait > 20.3 * 1.5
     [event] = [e for e in channel.events if e["type"] == "rate_limited"]
-    assert event["agent"] == "web_researcher" and event["model"] == "qwen/qwen3.8-27b"
+    assert event["agent"] == "web_researcher" and event["model"] == QWEN
+    assert "Used 6173" in event["detail"]
+
+
+async def test_a_limited_call_moves_to_a_team_model_with_room_instead_of_waiting(channel):
+    figures = ": Limit 7000, Used 6900, Requested 3000."
+    upstream, seen = scripted(limited(25, figures=figures), ok())
+    clock = Clock()
+
+    response = await send(transport(upstream, clock, alternates=[BIG]))
+    assert response.status_code == 200
+    assert clock.waits == []
+    assert json.loads(seen[1].content)["model"] == BIG
+    [event] = [e for e in channel.events if e["type"] == "model_fallback"]
+    assert (event["primary"], event["fallback"]) == (QWEN, BIG)
+    assert provider.CALL_LOG.get().served == {BIG: 1}
+
+
+async def test_a_model_known_to_be_out_of_tokens_is_not_sent_a_request_it_would_reject(channel):
+    # The last response said 100 tokens were left, so the next call goes straight elsewhere.
+    upstream, seen = scripted(ok(remaining=100), ok(), ok())
+    t = transport(upstream, alternates=[BIG])
+    await send(t)
+    await send(t)
+    await send(t)
+
+    assert [json.loads(r.content)["model"] for r in seen] == [QWEN, BIG, BIG]
+    assert len([e for e in channel.events if e["type"] == "model_fallback"]) == 1
+
+
+async def test_a_short_wait_keeps_the_call_on_its_own_model(channel):
+    upstream, seen = scripted(ok(remaining=0), ok())
+    clock = Clock()
+    t = transport(upstream, clock, alternates=[BIG])
+    await send(t)
+    clock.now += (NEED - 100) / (8000 / 60)  # 100 tokens short: under a second from fitting
+    await send(t)
+
+    assert [json.loads(r.content)["model"] for r in seen] == [QWEN, QWEN]
+    assert clock.waits == [pytest.approx(100 / (8000 / 60) + provider.WAIT_MARGIN_S)]
 
 
 async def test_daily_limit_is_passed_through_and_model_marked_exhausted(channel):
     upstream, seen = scripted(limited(900, "tokens per day (TPD)"))
+    clock = Clock()
 
-    async def no_sleep(seconds):
-        raise AssertionError("must not wait for a daily limit")
-
-    response = await send(provider.ResilientTransport(upstream, sleep=no_sleep))
+    response = await send(transport(upstream, clock))
     assert response.status_code == 429
-    assert len(seen) == 1
-    assert provider.is_exhausted("qwen/qwen3.8-27b")
+    assert len(seen) == 1 and clock.waits == []
+    assert provider.is_exhausted(QWEN)
+
+
+async def test_daily_limit_moves_the_call_to_a_model_with_quota_left(channel):
+    upstream, seen = scripted(limited(900, "tokens per day (TPD)"), ok())
+    response = await send(transport(upstream, alternates=[BIG]))
+    assert response.status_code == 200
+    assert json.loads(seen[1].content)["model"] == BIG
 
 
 async def test_malformed_tool_call_is_resampled(channel):
-    upstream, seen = scripted(BAD_TOOL_CALL, OK)
-    response = await send(provider.ResilientTransport(upstream))
+    upstream, seen = scripted(BAD_TOOL_CALL, ok())
+    response = await send(transport(upstream))
     assert response.status_code == 200
     assert len(seen) == 2
     assert any(e.get("rule") == "malformed_tool_call" for e in channel.events)
@@ -83,17 +164,36 @@ async def test_malformed_tool_call_is_resampled(channel):
 
 async def test_other_client_errors_are_not_retried(channel):
     upstream, seen = scripted(httpx.Response(400, json={"error": {"message": "bad request"}}))
-    response = await send(provider.ResilientTransport(upstream))
+    response = await send(transport(upstream))
     assert response.status_code == 400
     assert len(seen) == 1
 
 
 async def test_gives_up_after_the_retry_limit(channel):
     upstream, seen = scripted(*[limited(1) for _ in range(provider.MAX_RATE_LIMIT_RETRIES + 1)])
-
-    async def fake_sleep(seconds):
-        pass
-
-    response = await send(provider.ResilientTransport(upstream, sleep=fake_sleep))
+    response = await send(transport(upstream))
     assert response.status_code == 429
     assert len(seen) == provider.MAX_RATE_LIMIT_RETRIES + 1
+
+
+def test_the_critic_never_borrows_the_writers_model_family():
+    settings = Settings(groq_api_key="k", models={
+        "coordinator": BIG, "hn_scout": "openai/gpt-oss-20b", "web_researcher": QWEN,
+        "article_reader": "openai/gpt-oss-20b", "writer": BIG, "critic": QWEN,
+    })
+    assert settings.alternate_models("critic") == []
+    assert settings.alternate_models("web_researcher") == [BIG, "openai/gpt-oss-20b"]
+    assert settings.alternate_models("coordinator") == ["openai/gpt-oss-20b", QWEN]
+    # qwen's output cap is too small for drafts: a borrowed one would stall the critic.
+    assert settings.alternate_models("writer") == ["openai/gpt-oss-20b"]
+
+
+async def test_an_output_limit_holds_the_model_back_without_shrinking_its_token_budget(channel):
+    figures = ": Limit 1000, Used 999, Requested 146. Please try again in 8.7s."
+    upstream, seen = scripted(limited(8.7, "output tokens per minute (OTPM)", figures), ok())
+    clock = Clock()
+
+    response = await send(transport(upstream, clock))
+    assert response.status_code == 200
+    assert clock.waits == [pytest.approx(8.7 + provider.WAIT_MARGIN_S)]
+    assert provider.bucket(QWEN).capacity == provider.DEFAULT_TOKENS_PER_MIN
