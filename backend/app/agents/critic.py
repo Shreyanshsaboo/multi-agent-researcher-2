@@ -30,7 +30,8 @@ Real problems found by the automated citation check should become issues.
 
 OUTPUT
 - Give each issue an id (I1, I2, ...), a severity ("major" if it would mislead a reader), a
-  specific detail and a concrete suggestion. Report 0-5 issues, most important first.
+  specific detail and a concrete suggestion, each in one sentence. Report 0-5 issues, most
+  important first.
 - research_requests: only for gaps the current evidence cannot fill, at most 2, each naming
   the best worker (hn_scout, web_researcher or article_reader) and a specific instruction.
 - If the writer disputed any of your earlier issues, add a ruling for each one: accepted true
