@@ -60,9 +60,6 @@ class RunState:
     def latest_review(self) -> Review | None:
         return self.reviews[-1] if self.reviews else None
 
-    def next_task_id(self) -> str:
-        return f"T{len(self.tasks) + 1}"
-
     # ---------------------------------------------------------------- rendering
 
     def render_plan(self) -> str:

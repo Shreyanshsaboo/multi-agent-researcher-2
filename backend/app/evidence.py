@@ -1,9 +1,9 @@
 """The shared evidence store (the team's blackboard of sources) and citation checks.
 
-Workers write to it through their record_finding tool, the writer cites its ids,
-and the critic checks those citations against it. Sources are keyed by a
-normalised URL, so when the article reader reads a story the HN scout already
-found, the two findings merge into one evidence item instead of two.
+Workers' findings are saved to it once they are checked against what their tools
+returned, the writer cites its ids, and the critic checks those citations against
+it. Sources are keyed by a normalised URL, so when the article reader reads a story
+the HN scout already found, the two findings merge into one evidence item.
 """
 
 import re
