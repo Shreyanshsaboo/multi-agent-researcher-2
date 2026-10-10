@@ -22,12 +22,13 @@ AGENT_IDS = (
 )
 
 # Groq rate limits are per model, so the agents are spread over three models to
-# keep one run inside the free tier's tokens-per-minute. The critic runs on a
-# different model family from the writer so it does not share its blind spots.
+# keep one run inside the free tier's tokens-per-minute. The two researchers that
+# open every run in parallel get a model each. The critic runs on a different
+# model family from the writer so it does not share its blind spots.
 DEFAULT_MODELS = {
     "coordinator": "openai/gpt-oss-120b",
     "hn_scout": "openai/gpt-oss-20b",
-    "web_researcher": "qwen/qwen3.8-27b",
+    "web_researcher": "openai/gpt-oss-120b",
     "article_reader": "openai/gpt-oss-20b",
     "writer": "openai/gpt-oss-120b",
     "critic": "qwen/qwen3.8-27b",
