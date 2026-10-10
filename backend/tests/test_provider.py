@@ -183,9 +183,14 @@ def test_the_critic_never_borrows_the_writers_model_family():
     })
     assert settings.alternate_models("critic") == []
     assert settings.alternate_models("web_researcher") == [BIG, "openai/gpt-oss-20b"]
-    assert settings.alternate_models("coordinator") == ["openai/gpt-oss-20b", QWEN]
-    # qwen's output cap is too small for drafts: a borrowed one would stall the critic.
-    assert settings.alternate_models("writer") == ["openai/gpt-oss-20b"]
+
+
+def test_a_model_with_an_output_cap_lends_to_no_one():
+    # qwen's 1,000 output tokens a minute are kept for the critic, which can run nowhere else.
+    settings = Settings(groq_api_key="k")
+    for agent_id in ("coordinator", "hn_scout", "web_researcher", "article_reader", "writer"):
+        assert QWEN not in settings.alternate_models(agent_id)
+    assert settings.alternate_models("coordinator") == ["openai/gpt-oss-20b"]
 
 
 async def test_an_output_limit_holds_the_model_back_without_shrinking_its_token_budget(channel):
