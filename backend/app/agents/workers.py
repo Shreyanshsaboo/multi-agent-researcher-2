@@ -41,9 +41,11 @@ other agents cover everything else.
 {specialty}
 
 HOW TO WORK
-- Plan the tool calls the task needs and make them together in one step (parallel calls),
-  rather than one at a time. If a search returns nothing useful, adapt: one more round with
-  reformulated queries (fewer or broader keywords, synonyms, a different time range).
+- You have {tool_calls} tool calls in total for this task. Plan them and make them together in
+  one step (parallel calls), rather than one at a time: every extra step resends everything so
+  far and costs the team time. Only if a search returns nothing useful, adapt in one more
+  round with reformulated queries (fewer or broader keywords, synonyms, a different time range).
+- When your tool calls are used up, or you have enough, write your final answer.
 - If a tool errors, try once more in a different way, then report it. Never invent sources.
 - Report at most {max_findings} findings; prefer relevant, diverse and recent sources.
 - Key points must be specific (figures, dates, names, opinions with who holds them) and must
@@ -198,6 +200,7 @@ class WorkerAgent:
             model=model,
             fallback_config=fallbacks,
             instructions=PROTOCOL.format(name=self.profile.name, specialty=self.profile.specialty,
+                                         tool_calls=self.profile.tool_call_limit,
                                          max_findings=self.budget.max_findings_per_task),
             tools=self.profile.make_tools(ctx),
             tool_call_limit=self.profile.tool_call_limit,
