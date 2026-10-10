@@ -40,7 +40,7 @@ export default function App() {
   const [showAbout, setShowAbout] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [prefill, setPrefill] = useState<{ text: string; key: number }>();
-  const fill = (text: string) => setPrefill({ text, key: Date.now() });
+  const fill = (text: string) => setPrefill((previous) => ({ text, key: (previous?.key ?? 0) + 1 }));
   const latest = useRef<HTMLElement>(null);
 
   const lastRun = turns.at(-1)?.runId ?? null;
@@ -51,17 +51,18 @@ export default function App() {
     api.threads().then((r) => setThreads(r.threads)).catch(() => undefined);
   }, []);
 
-  const openThread = useCallback(async (id: string) => {
-    setMenuOpen(false);
-    try {
-      const thread = await api.thread(id);
-      setThreadId(thread.thread_id);
-      setTurns(thread.runs.map((r) => ({ runId: r.id, query: r.query })));
-      setThreadInUrl(thread.thread_id);
-    } catch {
-      setThreadInUrl(null);
-    }
-  }, []);
+  const loadThread = useCallback(
+    (id: string) =>
+      api
+        .thread(id)
+        .then((thread) => {
+          setThreadId(thread.thread_id);
+          setTurns(thread.runs.map((r) => ({ runId: r.id, query: r.query })));
+          setThreadInUrl(thread.thread_id);
+        })
+        .catch(() => setThreadInUrl(null)),
+    [],
+  );
 
   useEffect(() => {
     refreshThreads();
@@ -70,9 +71,9 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const thread = params.get("c");
     const run = params.get("run");
-    if (thread) void openThread(thread);
-    else if (run) api.run(run).then((r) => openThread(r.thread_id)).catch(() => undefined);
-  }, [refreshThreads, openThread]);
+    if (thread) void loadThread(thread);
+    else if (run) api.run(run).then((r) => loadThread(r.thread_id)).catch(() => undefined);
+  }, [refreshThreads, loadThread]);
 
   // Refresh the history once an answer is finished.
   useEffect(() => {
@@ -88,6 +89,11 @@ export default function App() {
     const again = setTimeout(scroll, 600);
     return () => clearTimeout(again);
   }, [turns.length]);
+
+  function openThread(id: string) {
+    setMenuOpen(false);
+    void loadThread(id);
+  }
 
   function newQuestion() {
     setThreadId(null);
@@ -112,7 +118,7 @@ export default function App() {
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         onNew={newQuestion}
-        onOpen={(id) => void openThread(id)}
+        onOpen={openThread}
         onAbout={() => setShowAbout(true)}
       />
 

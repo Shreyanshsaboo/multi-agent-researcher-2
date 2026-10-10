@@ -2,10 +2,11 @@ import { AlertTriangle, BadgeCheck, Check, Copy, Download, Network, RotateCcw } 
 import { useState } from "react";
 
 import { api } from "../lib/api";
+import { citationOrder } from "../lib/citations";
 import { domainOf } from "../lib/format";
 import type { RunView } from "../lib/runState";
 import { useRunView } from "../lib/runStore";
-import { AnswerBody, citationOrder } from "./AnswerBody";
+import { AnswerBody } from "./AnswerBody";
 import { Steps } from "./Steps";
 
 function ReviewBadge({ view }: { view: RunView }) {

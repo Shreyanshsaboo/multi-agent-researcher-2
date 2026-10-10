@@ -3,15 +3,9 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { SOURCE_LABELS } from "../lib/agents";
+import { CITATION, citationOrder } from "../lib/citations";
 import { domainOf } from "../lib/format";
 import type { Evidence } from "../types";
-
-const CITATION = /\[(E\d+)\](?!\()/g;
-
-/** Evidence ids in order of first citation, so sources can be numbered 1, 2, 3 for readers. */
-export function citationOrder(markdown: string): string[] {
-  return [...new Set([...markdown.matchAll(CITATION)].map((m) => m[1]))];
-}
 
 function Citation({ n, evidence }: { n: number; evidence?: Evidence }) {
   if (!evidence) return null;

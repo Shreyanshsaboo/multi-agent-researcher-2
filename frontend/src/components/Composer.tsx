@@ -34,12 +34,17 @@ export function Composer({
   const [error, setError] = useState<string | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
 
+  // Take over a new draft when the prop changes (during render, not in an effect). The one
+  // present at mount is stale: it is the question that was just asked from the start page.
+  const [adopted, setAdopted] = useState(draft);
+  if (draft !== adopted) {
+    setAdopted(draft);
+    if (draft) setQuery(draft.text);
+  }
+
   useEffect(() => {
-    if (draft) {
-      setQuery(draft.text);
-      box.current?.focus();
-    }
-  }, [draft]);
+    if (adopted) box.current?.focus();
+  }, [adopted]);
 
   useEffect(() => {
     const el = box.current;
