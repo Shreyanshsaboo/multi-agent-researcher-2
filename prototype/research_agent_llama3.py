@@ -11,9 +11,9 @@ from agno.agent import Agent
 from agno.models.ollama import Ollama
 from agno.run.agent import RunOutput
 from agno.team import Team
-from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from agno.tools.newspaper4k import Newspaper4kTools
+from agno.tools.websearch import WebSearchTools
 from dotenv import load_dotenv
 
 # Picks up OLLAMA_HOST, if set, before the Ollama client is created.
@@ -62,7 +62,10 @@ def build_team() -> Team:
         name="Web Searcher",
         model=Ollama(id=MODEL_ID, max_tokens=MAX_TOKENS),
         role="Searches the web for information on a topic",
-        tools=[DuckDuckGoTools()],
+        # "auto" rotates across free, keyless engines (Bing, Yahoo, DuckDuckGo, ...)
+        # and falls back when one returns nothing, instead of pinning to a
+        # single engine that rate-limits rapid queries.
+        tools=[WebSearchTools(backend="auto")],
         # Models have no reliable sense of the current date, so recency-sensitive
         # queries would otherwise resolve against the training cutoff.
         add_datetime_to_context=True,

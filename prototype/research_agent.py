@@ -13,15 +13,39 @@ from agno.agent import Agent
 from agno.models.groq import Groq
 from agno.run.agent import RunOutput
 from agno.team import Team
-from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from agno.tools.newspaper4k import Newspaper4kTools
+from agno.tools.websearch import WebSearchTools
 from dotenv import load_dotenv
 
 # The .env file lives in the repository root, one level up.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 MODEL_ID = "openai/gpt-oss-120b"
+
+# Groq's free tier caps every model at 8,000 tokens per minute, and rejects any
+# single request over that outright. Groq counts the reserved completion budget
+# toward the request, so these limits keep each call well under the cap.
+MAX_TOKENS = 2048
+ARTICLE_CHARS = 4000  # roughly 1,000 tokens per article read
+SEARCH_RESULTS = 5
+# Caps tool calls per member run. Without it, a member that hits an unreadable
+# page or an empty search keeps retrying variations and burns the token budget.
+TOOL_CALL_LIMIT = 5
+
+
+def groq_model() -> Groq:
+    """A Groq model that waits out per-minute rate limits instead of failing.
+
+    Backoff runs 10s, 20s, 40s, which spans a full one-minute TPM window.
+    """
+    return Groq(
+        id=MODEL_ID,
+        max_tokens=MAX_TOKENS,
+        retries=3,
+        delay_between_retries=10,
+        exponential_backoff=True,
+    )
 
 # The workflow definition. Reordering these lines reorders the pipeline, which
 # is the fastest way to try a different research strategy.
@@ -43,23 +67,32 @@ def build_team() -> Team:
     """
     hn_researcher = Agent(
         name="HackerNews Researcher",
-        model=Groq(id=MODEL_ID),
+        model=groq_model(),
         role="Gets top stories from hackernews.",
         tools=[HackerNewsTools()],
     )
 
     article_reader = Agent(
         name="Article Reader",
-        model=Groq(id=MODEL_ID),
+        model=groq_model(),
         role="Reads articles from URLs.",
-        tools=[Newspaper4kTools()],
+        tools=[Newspaper4kTools(article_length=ARTICLE_CHARS)],
+        instructions=[
+            "Only read the URLs you were given.",
+            "If a URL cannot be read, skip it. Never guess or construct other URLs.",
+        ],
+        tool_call_limit=TOOL_CALL_LIMIT,
     )
 
     web_searcher = Agent(
         name="Web Searcher",
-        model=Groq(id=MODEL_ID),
+        model=groq_model(),
         role="Searches the web for information on a topic",
-        tools=[DuckDuckGoTools()],
+        # "auto" rotates across free, keyless engines (Bing, Yahoo, DuckDuckGo, ...)
+        # and falls back when one returns nothing, instead of pinning to a
+        # single engine that rate-limits rapid queries.
+        tools=[WebSearchTools(backend="auto", fixed_max_results=SEARCH_RESULTS)],
+        tool_call_limit=TOOL_CALL_LIMIT,
         # Models have no reliable sense of the current date, so recency-sensitive
         # queries would otherwise resolve against the training cutoff.
         add_datetime_to_context=True,
@@ -67,7 +100,7 @@ def build_team() -> Team:
 
     return Team(
         name="HackerNews Team",
-        model=Groq(id=MODEL_ID),
+        model=groq_model(),
         members=[hn_researcher, web_searcher, article_reader],
         instructions=TEAM_INSTRUCTIONS,
         markdown=True,

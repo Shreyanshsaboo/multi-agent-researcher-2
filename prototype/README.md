@@ -61,14 +61,14 @@ The system is four layers: a thin presentation layer, a coordination layer that 
 +------------------+      +------------------+      +------------------+
 | TOOL LAYER       |      |                  |      |                  |
 |                  |      |                  |      |                  |
-| HackerNewsTools  |      | Newspaper4kTools |      | DuckDuckGoTools  |
+| HackerNewsTools  |      | Newspaper4kTools |      | WebSearchTools   |
 +------------------+      +------------------+      +------------------+
          |                         |                         |
          v                         v                         v
 +------------------+      +------------------+      +------------------+
 | EXTERNAL         |      |                  |      |                  |
 |                  |      |                  |      |                  |
-| HackerNews API   |      | Article hosts    |      | DuckDuckGo       |
+| HackerNews API   |      | Article hosts    |      | Bing, Yahoo, ... |
 | (Firebase)       |      | (HTTP + parse)   |      | search index     |
 +------------------+      +------------------+      +------------------+
 
@@ -85,7 +85,7 @@ The orchestrator is the only component that knows the full task. Member agents r
 | HackerNews Team | Plans the workflow, delegates, merges member output into the final report | none | Owns run context |
 | HackerNews Researcher | Retrieves top and topic-relevant stories with their URLs | `HackerNewsTools` | Stateless |
 | Article Reader | Fetches and parses full article text behind a URL | `Newspaper4kTools` | Stateless |
-| Web Searcher | Gathers supplementary context outside HackerNews | `DuckDuckGoTools` | Stateless, date-aware |
+| Web Searcher | Gathers supplementary context outside HackerNews | `WebSearchTools` (auto backend) | Stateless, date-aware |
 
 ## Request lifecycle
 
