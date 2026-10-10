@@ -106,6 +106,15 @@ docker run --rm -p 8000:8000 --env-file .env -v researcher-data:/app/data multi-
 
 Open <http://localhost:8000>.
 
+### Deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Shreyanshsaboo/multi-agent-researcher-2)
+
+The repository includes a [Render blueprint](render.yaml) that builds the same container. Render asks
+for `GROQ_API_KEY` when the service is created. The free plan stops after 15 idle minutes, so the
+first request after a pause takes about a minute, and the run history resets on each deploy. Any other
+host that runs a Dockerfile works too: the container listens on `$PORT`.
+
 ### Run for development
 
 Backend, from `backend/`:
@@ -215,6 +224,7 @@ CI runs all of these on every push and pull request
 ├── docs/                    synopsis, design, input/output spec, sample run
 ├── prototype/               the v1 Streamlit prototype, kept for reference
 ├── Dockerfile
+├── render.yaml              one-click deployment on Render
 └── .env.example
 ```
 
