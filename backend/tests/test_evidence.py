@@ -1,4 +1,4 @@
-from app.evidence import EvidenceStore, check_citations, normalize_url
+from app.evidence import EvidenceStore, check_citations, closest_url, normalize_url
 
 
 def test_normalize_url_ignores_tracking_case_and_trailing_slash():
@@ -67,3 +67,13 @@ def test_check_citations_flags_unknown_ids_and_uncited_paragraphs():
     assert check.unknown_ids == ["E9"]
     assert len(check.uncited_paragraphs) == 1
     assert check.evidence_total == 1
+
+
+def test_closest_url_forgives_a_mis_copied_long_url_but_never_guesses_between_short_ones():
+    real = ("https://www.manilatimes.net/2026/10/08/tmt-newswire/pr-newswire/hong-kongs-m-mark-esports-"
+            "event-returns-sellout-blast-premier-rivals-confirmed-for-second-year-following-historic-"
+            "debut/2442043")
+    known = {normalize_url(real), normalize_url("https://variety.com/2026/sports/news/ipl")}
+    assert closest_url(real.replace("esports-event-returns", "esports-returns"), known) == normalize_url(real)
+    assert closest_url("https://variety.com/2026/sports/news/nba", known) is None
+    assert closest_url("https://elsewhere.com/2026/10/08/tmt-newswire", known) is None

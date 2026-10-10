@@ -20,7 +20,7 @@ from typing import Any, Protocol
 from app.agents import AgentFailure, fallback_draft
 from app.config import Budget
 from app.events import RunChannel
-from app.evidence import EvidenceStore, check_citations, normalize_url
+from app.evidence import EvidenceStore, check_citations, closest_url, normalize_url
 from app.schemas import (
     CitationCheck,
     CoordinatorDecision,
@@ -209,6 +209,17 @@ class Orchestrator:
             urls |= {normalize_url(u) for u in past.get("urls", [])}
         return urls
 
+    def _resolve_source(self, ref: str, readable: set[str]) -> str | None:
+        """The URL an article_reader reference points to: an evidence id or a known URL."""
+        ref = ref.strip()
+        if item := self.state.evidence.get(ref.upper()):
+            return item.url
+        key = closest_url(ref, readable)
+        if key is None:
+            return None
+        item = self.state.evidence.find_by_url(key)
+        return item.url if item else ref if normalize_url(ref) == key else key
+
     def _validate(self, decision: CoordinatorDecision) -> CoordinatorDecision:
         s, budget = self.state, self.state.budget
         action = decision.action
@@ -218,9 +229,10 @@ class Orchestrator:
             readable = self._readable_urls()
             for task in decision.tasks:
                 if task.agent == "article_reader":
-                    urls = [u for u in task.urls if normalize_url(u) in readable]
-                    if len(urls) < len(task.urls):
+                    resolved = [self._resolve_source(u, readable) for u in task.urls]
+                    if None in resolved:
                         self._correct("Dropped article_reader URLs that are not in the evidence store.")
+                    urls = list(dict.fromkeys(u for u in resolved if u))
                     if not urls:
                         self._correct("article_reader needs URLs from the evidence store; task skipped.")
                         continue

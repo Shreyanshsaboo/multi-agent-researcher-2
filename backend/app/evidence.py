@@ -7,6 +7,8 @@ found, the two findings merge into one evidence item instead of two.
 """
 
 import re
+from collections.abc import Iterable
+from difflib import SequenceMatcher
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -30,6 +32,26 @@ def normalize_url(url: str) -> str:
 
 def domain_of(url: str) -> str:
     return urlsplit(url).netloc.lower().removeprefix("www.")
+
+
+def closest_url(url: str, known: Iterable[str], cutoff: float = 0.95) -> str | None:
+    """The known (normalised) URL that ``url`` refers to, if any.
+
+    Models sometimes drop or change a word when copying a long URL, which turns a
+    read of a known source into a refused one. A near-identical URL on the same
+    site is taken to mean that source; an ambiguous or distant one never is.
+    """
+    key = normalize_url(url)
+    if key in known:
+        return key
+    site = domain_of(key)
+    scored = sorted(((SequenceMatcher(None, key, k).ratio(), k) for k in known
+                     if domain_of(k) == site), reverse=True)
+    if not scored or scored[0][0] < cutoff:
+        return None
+    if len(scored) > 1 and scored[0][0] - scored[1][0] < 0.02:
+        return None
+    return scored[0][1]
 
 
 class EvidenceStore:

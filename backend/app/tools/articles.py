@@ -12,7 +12,7 @@ from typing import Any
 
 import newspaper
 
-from app.evidence import normalize_url
+from app.evidence import closest_url, normalize_url
 from app.textutil import terms
 from app.tools.base import SourceMeta, ToolContext
 from app.tools.hackernews import format_thread, hn_item_id, story_thread
@@ -87,24 +87,30 @@ def make_article_tools(ctx: ToolContext) -> list:
             focus: What you are looking for in this page, e.g. "pricing figures and dates".
         """
         async def body() -> str:
-            if ctx.allowed_urls is not None and normalize_url(url) not in ctx.allowed_urls:
-                raise PermissionError(
-                    "this URL is not in your task or the evidence store; read only those URLs"
-                )
-            existing = ctx.evidence.find_by_url(url)
+            target = url
+            if ctx.allowed_urls is not None:
+                key = closest_url(url, ctx.allowed_urls)
+                if key is None:
+                    raise PermissionError(
+                        "this URL is not in your task or the evidence store; read only those URLs"
+                    )
+                # A slightly mis-copied URL still means that source; read it as recorded.
+                known = ctx.evidence.find_by_url(key)
+                target = known.url if known else url if normalize_url(url) == key else key
+            existing = ctx.evidence.find_by_url(target)
 
-            story_id = hn_item_id(url)
+            story_id = hn_item_id(target)
             if story_id:
                 thread = await story_thread(ctx.http, story_id, limit=8)
                 text = format_thread(thread)
-                ctx.remember(url, SourceMeta(
+                ctx.remember(target, SourceMeta(
                     title=f"HN discussion: {thread['title']}", source_type="hackernews",
                     text=text, published=thread["date"], full_text=True))
                 return text
 
-            data = await asyncio.wait_for(asyncio.to_thread(_extract, url), FETCH_TIMEOUT_S + 8)
+            data = await asyncio.wait_for(asyncio.to_thread(_extract, target), FETCH_TIMEOUT_S + 8)
             excerpt, trimmed = select_passages(data["text"], focus)
-            ctx.remember(url, SourceMeta(
+            ctx.remember(target, SourceMeta(
                 title=data["title"],
                 source_type=existing.source_type if existing else "article",
                 text=data["text"],
@@ -112,7 +118,7 @@ def make_article_tools(ctx: ToolContext) -> list:
                 full_text=True,
                 meta={"chars": len(data["text"])},
             ))
-            header = [f"TITLE: {data['title']}", f"URL: {url}"]
+            header = [f"TITLE: {data['title']}", f"URL: {target}"]
             if data["published"]:
                 header.append(f"PUBLISHED: {data['published']}")
             if data["authors"]:

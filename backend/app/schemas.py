@@ -74,7 +74,8 @@ class PlanItem(BaseModel):
 class TaskSpec(BaseModel):
     agent: WorkerId
     instruction: str = Field(description="Specific task: what to look for and why.")
-    urls: list[str] = Field(default_factory=list, description="article_reader only: URLs to read.")
+    urls: list[str] = Field(default_factory=list,
+                            description="article_reader only: URLs to read, or evidence ids like E3.")
     rationale: str = ""
 
     _norm_agent = field_validator("agent", mode="before")(_lower)

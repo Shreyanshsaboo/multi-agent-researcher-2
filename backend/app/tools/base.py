@@ -21,7 +21,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from app.events import RunChannel
-from app.evidence import EvidenceStore, normalize_url
+from app.evidence import EvidenceStore, closest_url, normalize_url
 
 MAX_POINTS_PER_FINDING = 4
 MAX_POINT_CHARS = 300
@@ -142,7 +142,8 @@ class ToolContext:
         )
 
     def _save(self, finding: Finding) -> str:
-        meta = self.seen.get(normalize_url(finding.url))
+        key = closest_url(finding.url, self.seen)
+        meta = self.seen.get(key) if key else None
         if meta is None:
             self._guardrail("unseen_source", f"Rejected {finding.url}: no tool returned it.")
             return f"REJECTED {finding.url}: not returned by any of your tools; use exact URLs."
@@ -173,7 +174,7 @@ class ToolContext:
             return f"REJECTED {finding.url}: no key point was supported by the retrieved text."
 
         item, created = self.evidence.add(
-            url=finding.url,
+            url=meta.url or finding.url,
             title=meta.title or finding.title,
             source_type=meta.source_type,
             agent=self.agent_id,

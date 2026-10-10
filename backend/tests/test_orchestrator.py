@@ -212,3 +212,19 @@ async def test_follow_up_sees_the_conversation_and_reuses_earlier_sources():
     assert result.evidence[0].meta["earlier_turn"] is True
     [context] = [e for e in channel.events if e["type"] == "context"]
     assert context["carried"] == ["E1"]
+
+
+async def test_article_reader_urls_can_be_evidence_ids_or_slightly_mangled_copies():
+    url = "https://www.manilatimes.net/2026/10/08/m-mark-esports-event-returns-for-second-year/2442043"
+    read = decision("delegate", tasks=[TaskSpec(agent="article_reader", instruction="read", urls=[
+        "E1", url.replace("esports-event-returns", "esports-returns")])])
+    orchestrator, channel, workers = build(ScriptedCoordinator([read, decision("draft"),
+                                                                decision("finish")]))
+    orchestrator.state.evidence.add(url=url, title="BLAST returns", source_type="news",
+                                    agent="web_researcher", key_points=["a fact"])
+    await orchestrator.run()
+
+    # Both point at E1 (the second is its URL copied with a word dropped): one read is enough.
+    [task] = workers["article_reader"].calls
+    assert task.urls == [url]
+    assert not [e for e in channel.events if e.get("rule") == "decision_corrected"]
