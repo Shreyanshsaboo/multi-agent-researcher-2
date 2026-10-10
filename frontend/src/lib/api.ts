@@ -1,4 +1,4 @@
-import type { AgentSpec, Budget, Depth, RunOptions, RunSummary, ThreadRun, ThreadSummary } from "../types";
+import type { AgentSpec, Budget, Depth, RunOptions, ThreadRun, ThreadSummary } from "../types";
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
@@ -28,7 +28,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   agents: () => request<{ agents: AgentSpec[]; budgets: Record<Depth, Budget> }>("/api/agents"),
   health: () => request<{ status: string; provider: string; llm_configured: boolean; active_runs: number }>("/api/health"),
-  runs: (limit = 20) => request<{ runs: RunSummary[] }>(`/api/runs?limit=${limit}`),
   threads: (limit = 40) => request<{ threads: ThreadSummary[] }>(`/api/threads?limit=${limit}`),
   thread: (threadId: string) => request<{ thread_id: string; runs: ThreadRun[] }>(`/api/threads/${threadId}`),
   run: (runId: string) => request<{ id: string; thread_id: string }>(`/api/runs/${runId}`),

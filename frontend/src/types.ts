@@ -138,17 +138,6 @@ export interface ThreadRun {
   title: string | null;
 }
 
-export interface RunSummary {
-  id: string;
-  query: string;
-  status: string;
-  created_at: number;
-  finished_at: number | null;
-  title: string | null;
-  score: number | null;
-  review_status: string | null;
-}
-
 interface BaseEvent {
   seq: number;
   ts: number;

@@ -31,15 +31,3 @@ export const SOURCE_LABELS: Record<Evidence["source_type"], string> = {
   news: "News",
   article: "Article",
 };
-
-export const MESSAGE_KINDS: Record<string, string> = {
-  query: "query",
-  decision: "decision",
-  task: "task",
-  result: "result",
-  brief: "brief",
-  draft: "draft",
-  verdict: "verdict",
-  critique: "critique",
-  final: "final",
-};
