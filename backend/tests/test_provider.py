@@ -176,6 +176,15 @@ async def test_gives_up_after_the_retry_limit(channel):
     assert len(seen) == provider.MAX_RATE_LIMIT_RETRIES + 1
 
 
+def test_provider_messages_lose_the_organization_id_and_the_upgrade_pitch():
+    message = ("Rate limit reached for model `qwen/qwen3.8-27b` in organization `org_01abc` service tier "
+               "`on_demand` on tokens per minute (TPM): Limit 8000, Used 7302, Requested 1853. Please "
+               "try again in 8.66s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com")
+    assert provider.clean_provider_message(message) == (
+        "Rate limit reached for model `qwen/qwen3.8-27b` service tier `on_demand` on tokens per minute "
+        "(TPM): Limit 8000, Used 7302, Requested 1853. Please try again in 8.66s.")
+
+
 def test_the_critic_never_borrows_the_writers_model_family():
     settings = Settings(groq_api_key="k", models={
         "coordinator": BIG, "hn_scout": "openai/gpt-oss-20b", "web_researcher": QWEN,

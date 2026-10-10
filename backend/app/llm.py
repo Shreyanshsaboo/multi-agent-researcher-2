@@ -11,7 +11,7 @@ from agno.models.ollama import Ollama
 
 from app.config import REASONING_EFFORT, Settings
 from app.events import ACTIVE_AGENT, RunChannel
-from app.provider import ResilientTransport, is_exhausted
+from app.provider import ResilientTransport, clean_provider_message, is_exhausted
 
 _clients: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, httpx.AsyncClient]" = (
     weakref.WeakKeyDictionary()
@@ -54,7 +54,7 @@ def _report_fallback(primary: str, fallback: str, error: Exception) -> None:
         return
     channel, agent_id = active
     channel.emit("model_fallback", agent=agent_id, primary=primary, fallback=fallback,
-                 detail=str(error)[:300])
+                 detail=clean_provider_message(str(error))[:300])
 
 
 def build_model_chain(

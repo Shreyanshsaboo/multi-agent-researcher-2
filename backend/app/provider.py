@@ -55,6 +55,8 @@ CHARS_PER_TOKEN = 3.5
 REPLY_ALLOWANCE = 800
 
 _FIGURES_RE = re.compile(r"Limit (\d+), Used (\d+), Requested (\d+)")
+_ORGANIZATION_RE = re.compile(r"\s+in organization `[^`]*`")
+_UPGRADE_PITCH_RE = re.compile(r"\s*Need more tokens\?.*", re.DOTALL)
 
 
 @dataclass
@@ -168,11 +170,20 @@ def _with_model(request: httpx.Request, body: dict, model_id: str) -> httpx.Requ
                          extensions=request.extensions)
 
 
+def clean_provider_message(text: str) -> str:
+    """Drop the account's organization id and the upgrade pitch from a provider error.
+
+    Error text ends up in run traces, which are downloaded and shared.
+    """
+    return _UPGRADE_PITCH_RE.sub("", _ORGANIZATION_RE.sub("", text))
+
+
 def _error_message(response: httpx.Response) -> str:
     try:
-        return response.json()["error"]["message"]
+        message = response.json()["error"]["message"]
     except (ValueError, KeyError, TypeError):
-        return response.text[:300]
+        message = response.text[:300]
+    return clean_provider_message(message)
 
 
 def _emit(type_: str, **payload) -> None:

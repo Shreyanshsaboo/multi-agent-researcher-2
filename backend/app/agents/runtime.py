@@ -17,7 +17,7 @@ from agno.run.base import RunStatus
 from pydantic import BaseModel, ValidationError
 
 from app.events import ACTIVE_AGENT, RunChannel
-from app.provider import CALL_LOG, CallLog
+from app.provider import CALL_LOG, CallLog, clean_provider_message
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -38,9 +38,10 @@ class AgentReply:
 def _error_text(content: Any) -> str:
     text = str(content or "unknown error")
     try:
-        return json.loads(text)["error"]["message"]
+        text = json.loads(text)["error"]["message"]
     except (ValueError, KeyError, TypeError):
-        return text[:300]
+        text = text[:300]
+    return clean_provider_message(text)
 
 
 async def run_agent(
@@ -54,7 +55,8 @@ async def run_agent(
     except TimeoutError:
         raise AgentFailure(f"{agent_id} timed out after {int(timeout)}s") from None
     except Exception as exc:
-        raise AgentFailure(f"{agent_id} crashed: {type(exc).__name__}: {exc}") from exc
+        detail = clean_provider_message(str(exc))
+        raise AgentFailure(f"{agent_id} crashed: {type(exc).__name__}: {detail}") from exc
     finally:
         CALL_LOG.reset(log_token)
         ACTIVE_AGENT.reset(token)
