@@ -34,6 +34,10 @@ from app.schemas import (
     TaskSpec,
 )
 from app.state import RunState
+from app.textutil import similarity
+
+# Keyword overlap above which a task is taken to repeat an earlier one.
+REPEAT_SIMILARITY = 0.6
 
 # ----------------------------------------------------------------- agent interfaces
 
@@ -220,14 +224,33 @@ class Orchestrator:
         item = self.state.evidence.find_by_url(key)
         return item.url if item else ref if normalize_url(ref) == key else key
 
+    def _repeat_of(self, task: TaskSpec) -> TaskResult | None:
+        """An earlier task this one repeats; running it again would find the same things."""
+        for past in self.state.tasks:
+            overlap, _ = similarity(past.instruction, task.instruction)
+            if past.agent == task.agent and overlap >= REPEAT_SIMILARITY:
+                return past
+        return None
+
     def _validate(self, decision: CoordinatorDecision) -> CoordinatorDecision:
         s, budget = self.state, self.state.budget
         action = decision.action
+
+        last_turn = s.turn >= budget.max_turns
+        if action == "delegate" and last_turn and len(s.evidence) and len(s.drafts) < budget.max_drafts:
+            self._correct("Last turn: research now could not reach the report, so the writer "
+                          "drafts from the current evidence instead.")
+            return decision.model_copy(update={"action": "draft", "tasks": []})
 
         if action == "delegate":
             tasks = []
             readable = self._readable_urls()
             for task in decision.tasks:
+                if task.agent != "article_reader" and (past := self._repeat_of(task)):
+                    self._correct(f"Dropped a {task.agent} task that repeats {past.task_id} "
+                                  f"([{past.status}]). Change the angle or keywords, use another "
+                                  "agent, or draft from the evidence you have.")
+                    continue
                 if task.agent == "article_reader":
                     resolved = [self._resolve_source(u, readable) for u in task.urls]
                     if None in resolved:

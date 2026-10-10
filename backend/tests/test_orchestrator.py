@@ -141,11 +141,49 @@ async def test_article_reader_cannot_read_urls_outside_the_evidence_store():
     assert any("article_reader needs URLs" in n for n in notes)
 
 
+async def test_article_reader_urls_can_be_evidence_ids_or_slightly_mangled_copies():
+    url = "https://www.manilatimes.net/2026/10/08/m-mark-esports-event-returns-for-second-year/2442043"
+    read = decision("delegate", tasks=[TaskSpec(agent="article_reader", instruction="read", urls=[
+        "E1", url.replace("esports-event-returns", "esports-returns")])])
+    orchestrator, channel, workers = build(ScriptedCoordinator([read, decision("draft"),
+                                                                decision("finish")]))
+    orchestrator.state.evidence.add(url=url, title="BLAST returns", source_type="news",
+                                    agent="web_researcher", key_points=["a fact"])
+    await orchestrator.run()
+
+    # Both point at E1 (the second is its URL copied with a word dropped): one read is enough.
+    [task] = workers["article_reader"].calls
+    assert task.urls == [url]
+    assert not [e for e in channel.events if e.get("rule") == "decision_corrected"]
+
+
+async def test_a_task_that_repeats_an_earlier_one_is_dropped_and_the_writer_drafts():
+    same = "Search news for the most widely reported sports stories this week"
+    coordinator = ScriptedCoordinator([
+        decision("delegate", tasks=[TaskSpec(agent="web_researcher", instruction=same)]),
+        decision("delegate", tasks=[TaskSpec(agent="web_researcher", instruction=same + " today")]),
+        decision("finish"),
+    ])
+    orchestrator, channel, workers = build(coordinator)
+    result = await orchestrator.run()
+
+    assert len(workers["web_researcher"].calls) == 1
+    notes = [e["detail"] for e in channel.events if e.get("rule") == "decision_corrected"]
+    assert any("repeats T1" in n for n in notes)
+    assert result.review_status == "approved"
+
+
+def hn_task(instruction):
+    return decision("delegate", tasks=[TaskSpec(agent="hn_scout", instruction=instruction)])
+
+
 async def test_turn_limit_stops_research_and_still_writes_a_report():
-    coordinator = ScriptedCoordinator([delegate("hn_scout")] * 2)
+    # Nothing is found until the last turn, so that turn researches and no review fits after it.
+    coordinator = ScriptedCoordinator([delegate("web_researcher"),
+                                       hn_task("complaints about latency in production")])
     budget = Budget(max_turns=2, max_drafts=2, max_tasks_per_turn=2, max_findings_per_task=3,
                     max_urls_per_read=2, time_limit_s=60)
-    orchestrator, channel, _ = build(coordinator, budget=budget)
+    orchestrator, channel, _ = build(coordinator, budget=budget, failing=("web_researcher",))
     result = await orchestrator.run()
 
     assert result.report_markdown
@@ -214,17 +252,15 @@ async def test_follow_up_sees_the_conversation_and_reuses_earlier_sources():
     assert context["carried"] == ["E1"]
 
 
-async def test_article_reader_urls_can_be_evidence_ids_or_slightly_mangled_copies():
-    url = "https://www.manilatimes.net/2026/10/08/m-mark-esports-event-returns-for-second-year/2442043"
-    read = decision("delegate", tasks=[TaskSpec(agent="article_reader", instruction="read", urls=[
-        "E1", url.replace("esports-event-returns", "esports-returns")])])
-    orchestrator, channel, workers = build(ScriptedCoordinator([read, decision("draft"),
-                                                                decision("finish")]))
-    orchestrator.state.evidence.add(url=url, title="BLAST returns", source_type="news",
-                                    agent="web_researcher", key_points=["a fact"])
-    await orchestrator.run()
+async def test_research_on_the_last_turn_becomes_a_reviewed_draft():
+    coordinator = ScriptedCoordinator([hn_task("launch threads about pricing"),
+                                       hn_task("complaints about latency in production")])
+    budget = Budget(max_turns=2, max_drafts=2, max_tasks_per_turn=2, max_findings_per_task=3,
+                    max_urls_per_read=2, time_limit_s=60)
+    orchestrator, channel, workers = build(coordinator, budget=budget)
+    result = await orchestrator.run()
 
-    # Both point at E1 (the second is its URL copied with a word dropped): one read is enough.
-    [task] = workers["article_reader"].calls
-    assert task.urls == [url]
-    assert not [e for e in channel.events if e.get("rule") == "decision_corrected"]
+    assert len(workers["hn_scout"].calls) == 1
+    assert result.review_status == "approved"
+    notes = [e["detail"] for e in channel.events if e.get("rule") == "decision_corrected"]
+    assert any(n.startswith("Last turn") for n in notes)
