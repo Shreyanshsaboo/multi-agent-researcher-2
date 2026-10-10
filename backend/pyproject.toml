@@ -4,6 +4,15 @@ version = "0.2.0"
 description = "Six cooperating LLM agents that research a topic and produce a cited, peer-reviewed report."
 requires-python = ">=3.11"
 
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+# Word lists such as the stopwords read better as one string than as a list literal.
+ignore = ["SIM905"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]

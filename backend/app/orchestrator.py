@@ -322,7 +322,7 @@ class Orchestrator:
             jobs.append(worker.execute(spec, task_id, self.state.query, allowed_urls=allowed))
 
         results = await asyncio.gather(*jobs, return_exceptions=True)
-        for spec, task_id, result in zip(tasks, ids, results):
+        for spec, task_id, result in zip(tasks, ids, results, strict=True):
             if isinstance(result, BaseException):
                 result = TaskResult(task_id=task_id, agent=spec.agent, instruction=spec.instruction,
                                     status="failed", summary=f"Worker crashed: {result}",

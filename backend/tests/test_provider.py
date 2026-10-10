@@ -195,5 +195,6 @@ async def test_an_output_limit_holds_the_model_back_without_shrinking_its_token_
 
     response = await send(transport(upstream, clock))
     assert response.status_code == 200
+    assert len(seen) == 2
     assert clock.waits == [pytest.approx(8.7 + provider.WAIT_MARGIN_S)]
     assert provider.bucket(QWEN).capacity == provider.DEFAULT_TOKENS_PER_MIN
