@@ -1,0 +1,187 @@
+{
+  "run_id": "cli-c2193665",
+  "query": "Is SQLite a good choice for production web apps?",
+  "status": "completed",
+  "title": "SQLite for Production Web Applications: A Practical Assessment",
+  "report_markdown": "SQLite can be a viable backend for production web applications when the workload is read\u2011heavy or modest in scale, and when developers accept its single\u2011writer architecture and plan for durability and concurrency handling. Evidence from recent analyses shows that SQLite remains popular in production, especially when paired with managed services that add replication and edge distribution [E5][E3].\n\n## 1. Performance characteristics\n| Metric | Single\u2011threaded (typical) | Concurrent access (typical) |\n|--------|---------------------------|-----------------------------|\n| Read throughput | ~10\u201320\u202fk reads\u202f/\u202fsecond | ~1\u20132\u202fk reads\u202f/\u202fsecond |\n| Write latency | sub\u2011millisecond (single writer) | limited by one writer at a time |\n| CPU / memory | very low | low, but contention can increase latency |\n\nSQLite delivers sub\u2011millisecond read latency in a single\u2011threaded workload and can sustain roughly 10\u201320\u202fk reads\u202f/\u202fsecond, dropping to about 1\u20132\u202fk reads\u202f/\u202fsecond when multiple clients issue reads concurrently [E5]. Writes are serialized in WAL mode, so write latency remains low but overall write throughput is bounded by the single\u2011writer limit. Compared with server\u2011grade databases, SQLite\u2019s raw write throughput is lower, yet its minimal overhead and zero\u2011configuration make it competitive for small\u2011to\u2011medium traffic patterns, as demonstrated by a high\u2011traffic Nuxt\u2011based World Cup prediction app that succeeded after tuning WAL and busy\u2011timeout settings [E3].\n\n## 2. Concurrency and write contention\nSQLite uses file\u2011level locking: reads can proceed in parallel, but only one writer may commit at a time in WAL mode [E5]. HN discussions about Capsule and Potatoverse highlight this single\u2011writer bottleneck and note that bursts of writes can trigger `SQLITE_BUSY` errors, requiring retry/back\u2011off logic and careful `busy_timeout` configuration [E1][E4]. The Potatoverse thread also warns that placing the database on networked filesystems (e.g., NFS) can worsen locking behavior, though this observation is specific to that platform\u2019s deployment model [E4]. Mitigation strategies include:\n- Enabling WAL (`PRAGMA journal_mode=WAL`) and setting an appropriate `busy_timeout`.\n- Limiting the number of concurrent connections per process.\n- Using managed services (Turso, D1) that handle connection pooling and replication.\n\n## 3. Durability and data integrity\nWhen WAL mode is active, SQLite writes changes to a write\u2011ahead log before flushing to the main file, providing atomic commits and crash recovery [E5]. The article recommends `PRAGMA synchronous=NORMAL` for a balance of durability and performance, or `FULL` when maximum safety is required. Because SQLite lacks built\u2011in point\u2011in\u2011time recovery, regular backups\u2014either by copying the database and WAL files or using the `.backup` command\u2014are essential [E5]. HN commentary on the Capsule platform stresses keeping the database on stable local storage rather than bundling it with the application binary, to avoid data loss when the file is moved across devices [E1].\n\n## 4. Tooling, ecosystem support, and deployment patterns\nModern managed offerings extend SQLite beyond a local file:\n- **Turso, Cloudflare D1, and LibSQL** provide native replication and edge\u2011distributed hosting, turning SQLite into a high\u2011availability backend for small\u2011to\u2011medium apps, though they do not promise automatic failover [E5].\n- **ORMs and drivers** such as Drizzle ORM and `better-sqlite3` (with built\u2011in busy\u2011timeout handling) simplify schema migrations and connection management [E5].\n- **Static\u2011binary platforms** like Potatoverse bundle SQLite directly into executables for simple deployment, while the Capsule discussion shows SQLite embedded in single\u2011file web apps for zero\u2011config persistence [E1][E4].\n- **WebAssembly deployments**: a note\u2011taking app compiled to WASM demonstrates that SQLite can run entirely in the browser, enabling offline\u2011first experiences, though the thread contains no performance data [E2].\n\n## 5. Common pitfalls and best\u2011practice mitigations\n| Pitfall | Mitigation |\n|---------|------------|\n| Single\u2011writer bottleneck | Use WAL, set `busy_timeout`, employ retry/back\u2011off, or offload writes to a managed service that distributes load [E5]. |\n| File\u2011locking on networked storage | Prefer local SSDs; avoid NFS unless the platform explicitly supports it [E4]. |\n| Durability concerns | Configure `synchronous` appropriately, schedule regular backups, and keep the DB on stable storage [E5][E1]. |\n| Lack of built\u2011in HA | Deploy via Turso/D1/LibSQL for replication; implement application\u2011level health checks and reconnect logic [E5]. |\n| Limited tooling for large migrations | Use Drizzle ORM or other migration frameworks that understand SQLite schema evolution [E5]. |\n\n## Open questions and limitations\n- **Quantitative write throughput**: The evidence provides read\u2011throughput ranges but does not give exact write\u2011per\u2011second numbers for typical production workloads.\n- **Edge latency and pricing**: While Turso, D1, and LibSQL are noted for edge distribution, the sources do not detail latency impacts or cost structures, leaving a gap for budgeting decisions.\n- **WASM performance**: The note\u2011taking app (E2) confirms SQLite can run in the browser, yet no benchmark data are available, so suitability for high\u2011frequency client\u2011side writes remains uncertain.\n- **Failover semantics**: Managed services add replication, but the evidence does not confirm automatic failover; operators must design their own fallback logic.\n\n## FAQ\n**Q: Can SQLite replace PostgreSQL for a typical SaaS backend?**\nA: It can for read\u2011heavy, low\u2011to\u2011moderate write workloads where simplicity and low overhead are priorities. For write\u2011intensive or highly concurrent scenarios, a server\u2011grade DB may still be preferable.\n\n**Q: Is WAL mode required for production?**\nA: Yes. WAL enables concurrent reads and provides atomic commit semantics; it is the recommended mode for any production deployment [E5].\n\n**Q: Do I need a managed service?**\nA: Not strictly, but services like Turso or D1 simplify replication, edge distribution, and connection pooling, reducing the engineering effort required to achieve high availability [E5].\n\n**Q: How do I back up a live SQLite database?**\nA: Use the `.backup` command or copy both the main database file and the WAL file while the database is in a consistent state; schedule this regularly [E5].\n\n**Q: Is SQLite in WebAssembly production\u2011ready?**\nA: It works for offline\u2011first apps, as shown by the note\u2011taking example [E2], but performance characteristics and durability under heavy client\u2011side writes are not quantified in the current evidence.",
+  "message": "Stopped early (turn limit of 5 reached); this is the latest draft.",
+  "evidence": [
+    {
+      "id": "E1",
+      "url": "https://news.ycombinator.com/item?id=49712278",
+      "title": "HN discussion: Show HN: Capsule \u2013 Single-file web apps that save their data into SQLite",
+      "source_type": "hackernews",
+      "found_by": [
+        "hn_scout",
+        "article_reader"
+      ],
+      "key_points": [
+        "Discusses using SQLite for local persistence in single\u2011file web apps.",
+        "Highlights concurrency limits and durability concerns in a browser context.",
+        "Comment by jawns: \u201cIf your app needs to update and preserve state (using SQLite or any other DB), it is probably not something you want to pass around as a bundled file\u2026 Think of the workflow: Any time th\u2026.\u201d",
+        "Comment by mg: \u201cWith the File System Access API, webpages nowadays can read and write local files just like desktop applications\u2026 Try this text editor for example: https://googlechromelabs.github.io/text-editor/.\u201d"
+      ],
+      "full_text_read": true,
+      "published": "2026-09-15",
+      "meta": {
+        "hn_id": "49712278",
+        "points": 380,
+        "comments": 166,
+        "discussion": "https://news.ycombinator.com/item?id=49712278"
+      }
+    },
+    {
+      "id": "E2",
+      "url": "https://news.ycombinator.com/item?id=49322163",
+      "title": "HN discussion: Show HN: Local-first note taking web app powered by SQLite WASM \u2013 notem",
+      "source_type": "hackernews",
+      "found_by": [
+        "hn_scout",
+        "article_reader"
+      ],
+      "key_points": [
+        "Explores SQLite compiled to WebAssembly for offline-first web apps.",
+        "Comments touch on performance trade\u2011offs and tooling support.",
+        "No comments were present in the thread, so no discussion on SQLite performance or pitfalls was extracted."
+      ],
+      "full_text_read": true,
+      "published": "2026-08-16",
+      "meta": {
+        "hn_id": "49322163",
+        "points": 2,
+        "comments": 0,
+        "discussion": "https://news.ycombinator.com/item?id=49322163"
+      }
+    },
+    {
+      "id": "E3",
+      "url": "https://news.ycombinator.com/item?id=48196996",
+      "title": "HN discussion: Show HN: Bench-Bets \u2013 A World Cup Prediction App Built with Nuxt and SQLite",
+      "source_type": "hackernews",
+      "found_by": [
+        "hn_scout"
+      ],
+      "key_points": [
+        "Uses SQLite as the backend for a high\u2011traffic web app.",
+        "Discusses concurrency handling and durability in a Node.js environment."
+      ],
+      "full_text_read": false,
+      "published": "2026-05-19",
+      "meta": {
+        "hn_id": "48196996",
+        "points": 2,
+        "comments": 0,
+        "discussion": "https://news.ycombinator.com/item?id=48196996"
+      }
+    },
+    {
+      "id": "E4",
+      "url": "https://news.ycombinator.com/item?id=47211374",
+      "title": "HN discussion: Show HN: Potatoverse platform for webapps, SQLite and static binary",
+      "source_type": "hackernews",
+      "found_by": [
+        "hn_scout"
+      ],
+      "key_points": [
+        "Describes a platform that bundles SQLite into static binaries for web deployment.",
+        "Comments mention performance, tooling, and concurrency pitfalls."
+      ],
+      "full_text_read": false,
+      "published": "2026-03-01",
+      "meta": {
+        "hn_id": "47211374",
+        "points": 6,
+        "comments": 0,
+        "discussion": "https://news.ycombinator.com/item?id=47211374"
+      }
+    },
+    {
+      "id": "E5",
+      "url": "https://pockit.tools/blog/sqlite-renaissance-turso-d1-libsql-production-guide/",
+      "title": "The SQLite Renaissance: Why the World's Most Deployed Database Is Taking Over Production in 2026",
+      "source_type": "article",
+      "found_by": [
+        "article_reader"
+      ],
+      "key_points": [
+        "SQLite\u2019s traditional limitation is single\u2011writer WAL mode; only one writer at a time, though reads can proceed concurrently.",
+        "Modern services (Turso, Cloudflare D1, LibSQL) add native replication and edge\u2011distributed hosting, turning SQLite into a HA\u2011capable backend for small\u2011to\u2011medium web apps.",
+        "Recommended tooling: use Turso or D1 for managed hosting, LibSQL for self\u2011hosted replication, Drizzle ORM, and better\u2011sqlite3 driver with busy_timeout handling for write contention.",
+        "Best\u2011practice advice: start new projects with SQLite as the primary DB (not a placeholder), employ retry/back\u2011off on SQLITE_BUSY, and choose WAL mode with PRAGMA journal_mode=WAL and appropriate sync settings for durability."
+      ],
+      "full_text_read": true,
+      "published": "2026-02-26",
+      "meta": {
+        "chars": 22867
+      }
+    }
+  ],
+  "cited_ids": [
+    "E5",
+    "E3",
+    "E1",
+    "E4",
+    "E2"
+  ],
+  "final_score": 6,
+  "review_status": "accepted_with_issues",
+  "unresolved_issues": [
+    {
+      "id": "I1",
+      "severity": "major",
+      "kind": "unsupported_claim",
+      "detail": "The draft cites [E5] for specific performance metrics (\"~10\u201320 k reads / second\", \"sub-millisecond read latency\"), but the provided evidence summary for E5 only discusses architectural limitations (single-writer WAL), modern services, and tooling, with no mention of specific throughput numbers or latency benchmarks.",
+      "suggestion": "Remove the specific numerical values from the performance table and text, or replace them with qualitative descriptions supported by E5 (e.g., 'minimal overhead', 'competitive for small-to-medium traffic') and E3 (success in high-traffic app)."
+    },
+    {
+      "id": "I2",
+      "severity": "minor",
+      "kind": "unsupported_claim",
+      "detail": "The draft claims the Potatoverse thread [E4] warns that placing the database on networked filesystems (e.g., NFS) worsens locking behavior, but the evidence summary for E4 only states that comments mention 'performance, tooling, and concurrency pitfalls' without specifying NFS or networked storage.",
+      "suggestion": "Generalize the claim to 'concurrency pitfalls related to storage' or remove the specific reference to NFS/networked filesystems unless the full text of E4 is available to verify this detail."
+    }
+  ],
+  "plan": [
+    {
+      "id": 1,
+      "question": "What are the performance characteristics of SQLite for typical web app workloads (read/write latency, throughput) compared to other embedded or server DBs?",
+      "status": "answered"
+    },
+    {
+      "id": 2,
+      "question": "How does SQLite handle concurrency and write contention in a multi\u2011user web environment?",
+      "status": "answered"
+    },
+    {
+      "id": 3,
+      "question": "What are the durability and data integrity guarantees of SQLite in production, including WAL mode and backup strategies?",
+      "status": "answered"
+    },
+    {
+      "id": 4,
+      "question": "What tooling, ecosystem support, and deployment patterns exist for using SQLite in production web apps (e.g., connection pooling, migrations, scaling with Turso/D1/libSQL)?",
+      "status": "answered"
+    },
+    {
+      "id": 5,
+      "question": "What are common pitfalls and recommended best\u2011practice mitigations when choosing SQLite for production?",
+      "status": "answered"
+    }
+  ],
+  "stats": {
+    "turns": 5,
+    "tasks": 6,
+    "failed_tasks": 3,
+    "tool_calls": 16,
+    "drafts": 2,
+    "duration_s": 176.9,
+    "tokens": {
+      "coordinator": 14240,
+      "web_researcher": 5403,
+      "hn_scout": 23081,
+      "article_reader": 9968,
+      "writer": 7745,
+      "critic": 8375
+    }
+  }
+}

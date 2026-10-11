@@ -68,13 +68,15 @@ Both are specified in [io-spec.md](io-spec.md).
 ## Outcome
 
 The system runs end to end as a web app (live view of every agent, message and tool call), a CLI and
-an API, packaged as one Docker container. The [sample run](samples/) shows a complete cycle on the
-question "How are teams cutting LLM inference costs in 2026?".
-In 132 seconds on the free tier, over five coordinator turns, the team ran five research tasks and
-collected ten sources. The critic rejected the first draft (5/10) for claims the evidence did not
-support and named two gaps; the coordinator sent the web researcher after them, the orchestrator
-dropped a task that repeated an earlier one, and the critic approved the revised draft (8/10), which
-cites nine of the ten sources.
+an API, packaged as one Docker container. Three real runs are captured in [samples/](samples/),
+each with its full trace. On "How are teams cutting LLM inference costs in 2026?", the critic
+rejected the first draft (5/10) for claims the evidence did not support and named two gaps; the
+coordinator sent the web researcher after them, and the critic approved the revised draft (8/10).
+On "What do developers think about Rust in the Linux kernel?", all six agents acted, including the
+article reader reading two sources in full. In a third run, every web search failed on purpose, and
+the coordinator switched to the other researchers and to sources recalled from earlier runs; the run
+still ended with a cited, reviewed report. Each run took two to three and a half minutes on the free
+tier.
 
 ## Technology
 

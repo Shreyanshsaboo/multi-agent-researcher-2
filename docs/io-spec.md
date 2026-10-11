@@ -2,9 +2,10 @@
 
 This document defines what goes into a run, what comes out, and what the agents exchange on the
 way. The Pydantic models in [`backend/app/schemas.py`](../backend/app/schemas.py) are the source of
-truth. The samples are real: they are taken from the run in [samples/](samples/) (run
-`cli-d3c6ff50`), shortened for reading: strings cut for length end in `…`, and long lists keep only their
-first items. The files themselves hold every event and field.
+truth. The samples are real: they are taken from the run in
+[samples/llm-inference-costs/](samples/llm-inference-costs/) (run `cli-d3c6ff50`), shortened for
+reading: strings cut for length end in `…`, and long lists keep only their first items. The files
+themselves hold every event and field, and [samples/](samples/) has two more runs in the same formats.
 
 ## Contents
 

@@ -2,7 +2,7 @@
 
 This document describes how the Multi-Agent Researcher is built and why. Every rule it states is
 in the code; the module that implements it is named alongside. The request, result and event formats
-are specified separately in [io-spec.md](io-spec.md), and [samples/](samples/) holds a real run.
+are specified separately in [io-spec.md](io-spec.md), and [samples/](samples/) holds three real runs.
 
 ## Contents
 
@@ -200,8 +200,9 @@ execute decisions, and make sure every run ends with a result.
 ### An example run
 
 The coordinator chooses the path each time, so runs differ. This one shows every agent and a
-revision round; the [sample run](samples/) took a different path, drafting straight after the first
-research turn and never calling the article reader.
+revision round. The [captured runs](samples/) took three other paths: one drafted straight after the
+first research turn and then researched the critic's gaps, one sent the article reader to read two
+sources in full before drafting, and one worked around a web search outage.
 
 ```mermaid
 sequenceDiagram
@@ -355,7 +356,10 @@ At startup, runs still marked `running` are marked failed, since they died with 
 
 **Fault injection.** A run can be started with `simulate_failures` (in the UI under Options, or
 `--fail` in the CLI). Every tool call of the named researchers then fails, which demonstrates the
-coordinator re-planning around an outage.
+coordinator re-planning around an outage. In the [web search outage sample](samples/sqlite-web-outage/),
+the web researcher failed on two turns; the coordinator then sent the article reader to Hacker News
+threads and to sources recalled from earlier runs, and the run still ended with a cited, reviewed
+report.
 
 ## 9. Model access and rate limits
 
