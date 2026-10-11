@@ -85,7 +85,8 @@ SQLite; React 19 with Vite and Tailwind; Docker. The design and the reasons behi
 
 ## Limitations and next steps
 
-- On Groq's free tier a run takes one to three minutes, mostly waiting for per-minute token quotas.
+- On Groq's free tier a run takes two to three and a half minutes, mostly waiting for per-minute
+  token quotas.
   A paid tier would bring it to well under a minute.
 - Keyless web search often returns stale results for "latest news" questions; a search API would
   improve the researchers' raw material.
