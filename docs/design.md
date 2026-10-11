@@ -291,7 +291,7 @@ At startup, runs still marked `running` are marked failed, since they died with 
 | Failure | Handling | Visible in the trace as |
 |---|---|---|
 | A tool call fails (network, paywall, no results) | The tool returns an error string to the agent, which retries differently or reports it | `tool_call` with phase `failed` |
-| A researcher fails or times out | Sources its tools already retrieved are saved as raw evidence, the task is marked partial or failed, and the coordinator re-plans | `guardrail` rule `salvaged`, `result` with status `failed` |
+| A researcher fails, times out or returns an empty report | Sources its tools already retrieved are saved as raw evidence, the task is marked partial or failed, and the coordinator re-plans | `guardrail` rule `salvaged`, `result` with status `failed` |
 | The coordinator fails | A fixed fallback policy takes over: research, then draft, then finish | `agent_error`, `decision` with `fallback: true` |
 | The writer fails | A digest of the evidence is used as the draft, marked as not reviewed | `agent_error`, `draft` with `fallback: true` |
 | The critic fails | The draft is kept and marked unreviewed | `agent_error`, `review` with an error |
