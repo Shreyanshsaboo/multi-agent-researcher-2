@@ -228,6 +228,9 @@ class WorkerAgent:
                                     channel=self.channel, agent_id=self.agent_id,
                                     timeout=self.settings.agent_timeout_s)
             report = parse_report(str(reply.content or ""))
+            if not report.summary and not report.findings:
+                # An empty reply is a failure to report: keep what the tools retrieved, as for a crash.
+                raise AgentFailure(f"{self.agent_id} returned an empty report")
             ctx.save_findings(report.findings)
             status = decide_status(report.status, len(ctx.evidence_ids), len(ctx.errors))
             summary = report.summary or "(no report)"

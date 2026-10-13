@@ -1,4 +1,9 @@
-from app.agents.workers import decide_status, parse_report
+import app.agents.workers as workers
+from app.agents.runtime import AgentReply
+from app.agents.workers import WorkerAgent, decide_status, parse_report
+from app.config import BUDGETS, Settings
+from app.schemas import TaskSpec
+from app.tools import make_hn_tools
 
 REPORT = """STATUS: partial
 REPORT: Found two strong HN threads; the web article was paywalled.
@@ -45,3 +50,23 @@ def test_decide_status_never_reports_success_without_evidence():
     assert decide_status("partial", saved=2, errors=0) == "partial"
     assert decide_status(None, saved=2, errors=1) == "partial"
     assert decide_status(None, saved=2, errors=0) == "success"
+
+
+async def test_empty_report_keeps_the_sources_the_tools_retrieved(monkeypatch, channel, evidence, http):
+    # The model searches, then replies with nothing. What the search returned is kept.
+    async def searches_then_says_nothing(ctx, prompt, **kwargs):
+        search, *_ = make_hn_tools(ctx)
+        await search("llm prices")
+        return AgentReply(content="")
+
+    monkeypatch.setattr(WorkerAgent, "_make_agent", lambda self, ctx: ctx)
+    monkeypatch.setattr(workers, "run_agent", searches_then_says_nothing)
+    worker = WorkerAgent("hn_scout", settings=Settings(groq_api_key="k"), channel=channel,
+                         evidence=evidence, http=http, budget=BUDGETS["quick"])
+    result = await worker.execute(TaskSpec(agent="hn_scout", instruction="Find threads on LLM prices"),
+                                  "T1", "How are LLM prices changing?")
+
+    assert result.status == "partial"
+    assert result.evidence_ids == ["E1", "E2", "E3"]
+    assert "returned an empty report" in result.summary
+    assert any(e.get("rule") == "salvaged" for e in channel.events)
