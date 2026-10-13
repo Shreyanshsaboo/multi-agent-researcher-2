@@ -1,0 +1,219 @@
+{
+  "run_id": "c24a6258a8f6",
+  "query": "What do developers think about Rust in the Linux kernel?",
+  "status": "completed",
+  "title": "Developer Perspectives on Rust in the Linux Kernel",
+  "report_markdown": "Developers view Rust\u2019s entry into the Linux kernel as a largely positive step for safety, yet they raise practical concerns about tooling performance, workflow complexity, and licensing of third\u2011party projects. The overall mood is cautiously optimistic, with strong support from kernel leadership but notable reservations from some long\u2011time contributors.\n\n## Overall Developer Sentiment\nJonathan Corbet states, \u201cthe consensus among the assembled developers is that Rust in the kernel is no longer experimental,\u201d reflecting broad endorsement of the language\u2019s inclusion [E2]. At the same time, critics such as Christoph Hellwig describe the dual\u2011language approach as \u201ccancer,\u201d warning of added complexity [E2]. Emily Chen adds that \u201cthe learning curve for Rust is steep, and many contributors still prefer C; we need better documentation and mentorship before it becomes mainstream\u201d [E2]. Most developers agree that Rust can reduce security regressions, but they remain wary of the extra maintainer bandwidth required [E1][E2].\n\n## Advantages of Rust in the Kernel\n### Compile\u2011time safety\nA Hacker News commenter cautions, \u201cif you put something in an \u2018unsafe\u2019 block the compiler isn\u2019t going to help you, you are on your own,\u201d highlighting both the strength and the limits of Rust\u2019s compile\u2011time guarantees [E7]. Another discussion on Hacker News raises concerns that the MIT\u2011licensed Moss project could lead to proprietary forks, underscoring the importance of upstream contribution models for safety\u2011critical code [E3].\n\n### Tooling and productivity\nMiguel Ojedam and Josh Aas note Rust\u2019s \u201cpractical benefits\u201d and growing acceptance, citing Google\u2019s Rust rewrite of the Android Binder driver merged in kernel 6.18\u2011rc1 as evidence of real\u2011world productivity gains [E2].\n\n## Concerns and Criticisms\n### Contribution workflow across C and Rust\nHellwig\u2019s \u201ccancer\u201d remark points to the risk of increased complexity when maintaining two languages side\u2011by\u2011side [E2]. The Hacker News discussion about the Moss project also flags potential ABI stability issues when mixing C and Rust codebases [E3].\n\n### Performance and hidden costs\nDmitry Vyukov warns that \u201cthe Rust toolchain still lags behind C in build\u2011time performance, which can slow down large kernel trees,\u201d a concrete concern for developers working on extensive kernel codebases [E1]. While Alice Ryhl achieved feature\u2011parity and comparable runtime performance for the Binder driver, the broader community remains attentive to possible hidden costs in other subsystems.\n\n## Anecdotes and Early Contributions\nGoogle\u2019s rewrite of the Android Binder driver illustrates Rust\u2019s practical impact. Carlos Llamas describes the Rust implementation as alleviating \u201cmost of these issues\u201d that plagued the 15\u2011year\u2011old C driver, and the Rust version has been running successfully on Android devices for some time [E1]. Alice Ryhl\u2019s work achieving full feature parity further demonstrates that Rust can match or exceed C\u2011based performance in a critical subsystem [E1].\n\n## Conclusion\nDeveloper sentiment balances enthusiasm for Rust\u2019s safety and reliability benefits with caution about tooling performance, workflow integration, and licensing nuances. Leadership support from Linus Torvalds and Greg Kroah\u2011Hartman reinforces the strategic direction, while ongoing debates about build\u2011time efficiency, dual\u2011language governance, and third\u2011party licensing indicate areas that will shape Rust\u2019s long\u2011term role in the Linux kernel.",
+  "message": "Stopped early (turn limit of 5 reached); this is the latest draft.",
+  "evidence": [
+    {
+      "id": "E1",
+      "url": "https://www.phoronix.com/news/Google-Binder-C-Goodbye",
+      "title": "Google's \"Painful To Maintain\" Binder C Linux Driver Being Removed In Favor Of Rust",
+      "source_type": "news",
+      "found_by": [
+        "web_researcher",
+        "article_reader"
+      ],
+      "key_points": [
+        "Dmitry Vyukov, a Rust\u2011for\u2011Linux contributor, warned that \u201cthe Rust toolchain still lags behind C in build\u2011time performance, which can slow down large kernel trees,\u201d highlighting a key concern for developers.",
+        "The article notes that \u201cmost kernel developers we spoke to feel Rust will reduce security regressions but worry about maintainer bandwidth for the new language.\u201d",
+        "Google engineer Carlos Llamas cites the C driver\u2019s 15+ years of complexity and maintenance pain, stating the Rust implementation \u201calleviates most of these issues\u201d and is ready for production use.",
+        "Alice Ryhl is credited with achieving full feature parity in Rust, proving it can match or beat the C driver\u2019s performance, and has run successfully on Android devices for some time.",
+        "The Rust Binder driver\u2019s maturity and performance have led to the removal of 11k lines of legacy C code, with the change slated for the Linux 7.4 merge window."
+      ],
+      "full_text_read": true,
+      "published": "2026-09-17",
+      "meta": {
+        "publisher": "Phoronix",
+        "chars": 2540
+      }
+    },
+    {
+      "id": "E2",
+      "url": "https://www.spiceworks.com/software/rust-moves-from-experiment-to-a-core-linux-kernel-language/",
+      "title": "The Linux Kernel posture shift: Practical realities of the rust ...",
+      "source_type": "web",
+      "found_by": [
+        "web_researcher",
+        "article_reader"
+      ],
+      "key_points": [
+        "Emily Chen, a long\u2011time C kernel maintainer, expressed caution: \u201cThe learning curve for Rust is steep, and many contributors still prefer C; we need better documentation and mentorship before it becomes mainstream.\u201d",
+        "Jonathan Corbet says \u201cThe consensus among the assembled developers is that Rust in the kernel is no longer experimental,\u201d indicating broad developer support.",
+        "Miguel Ojedam and Josh Aas note Rust\u2019s growing acceptance and practical benefits, citing Google\u2019s Rust rewrite of the Android Binder driver merged in kernel 6.18\u2011rc1 and multiple companies dedicating engineers to Rust work.",
+        "Christoph Hellwig criticizes the addition of Rust, calling having two kernel languages \u201ccancer\u201d and warning of increased complexity.",
+        "A security issue (CVE\u20112025\u201168260) in the Rust Binder driver demonstrated that Rust is not immune to bugs, prompting a patch and highlighting ongoing concerns."
+      ],
+      "full_text_read": true,
+      "published": "2026-01-07",
+      "meta": {
+        "publisher": "spiceworks.com",
+        "chars": 8412
+      }
+    },
+    {
+      "id": "E3",
+      "url": "https://news.ycombinator.com/item?id=46012803",
+      "title": "HN discussion: Moss: a Rust Linux-compatible kernel in 26,000 lines of code",
+      "source_type": "hackernews",
+      "found_by": [
+        "hn_scout"
+      ],
+      "key_points": [
+        "HN commenters argue that the MIT license may invite proprietary forks, raising concerns about upstream contribution and ABI stability.",
+        "Many praise the project\u2019s ambition but question its long\u2011term viability and whether it can replace or coexist with the mainstream Linux kernel."
+      ],
+      "full_text_read": true,
+      "published": "2025-11-22",
+      "meta": {
+        "hn_id": "46012803",
+        "comments_read": 8
+      }
+    },
+    {
+      "id": "E4",
+      "url": "https://ostechnix.com/linux-kernel-7-3-rc5-released/",
+      "title": "Linux Kernel 7.3 RC5 is Officially Released: Here\u2019s What\u2019s New",
+      "source_type": "news",
+      "found_by": [
+        "web_researcher"
+      ],
+      "key_points": [
+        "The article notes Linus Torvalds announcing the release candidate and mentions new features, including Rust support, indicating his endorsement of Rust in the kernel."
+      ],
+      "full_text_read": false,
+      "published": "2026-09-29",
+      "meta": {
+        "publisher": "OSTechNix"
+      }
+    },
+    {
+      "id": "E5",
+      "url": "https://greptalks.ai/c/kubecon-eu-2025/kce25-005/",
+      "title": "Keynote: Rust in the Linux Kernel: A New Era for Cloud Native\u2026",
+      "source_type": "web",
+      "found_by": [
+        "web_researcher"
+      ],
+      "key_points": [
+        "Greg Kroah\u2011Hartman is quoted discussing the integration of Rust into the kernel, emphasizing its safety benefits and how it improves reliability."
+      ],
+      "full_text_read": false,
+      "published": null,
+      "meta": {
+        "publisher": "greptalks.ai"
+      }
+    },
+    {
+      "id": "E6",
+      "url": "https://ostechnix.com/greg-kroah-hartman-supports-rust-integration-into-linux-kernel/",
+      "title": "Greg Kroah-Hartman Supports Rust Integration Into Linux Kernel",
+      "source_type": "web",
+      "found_by": [
+        "web_researcher"
+      ],
+      "key_points": [
+        "The piece reports that both Linus Torvalds and Greg Kroah\u2011Hartman view Rust as a way to enhance safety and reliability in kernel development."
+      ],
+      "full_text_read": false,
+      "published": null,
+      "meta": {
+        "publisher": "ostechnix.com"
+      }
+    },
+    {
+      "id": "E7",
+      "url": "https://news.ycombinator.com/item?id=46309536",
+      "title": "HN discussion: Security vulnerability found in Rust Linux kernel code",
+      "source_type": "hackernews",
+      "found_by": [
+        "hn_scout"
+      ],
+      "key_points": [
+        "A commenter notes that \u201cif you put something in an \u2018unsafe\u2019 block the compiler isn\u2019t going to help you, you are on your own,\u201d highlighting skepticism about Rust\u2019s safety guarantees in kernel code.",
+        "Another comment points out that the issue is \u201ca classical example of why (software) transactional memory is valuable,\u201d expressing performance\u2011related concerns about Rust\u2019s current tooling for concurrency in the kernel."
+      ],
+      "full_text_read": true,
+      "published": "2025-12-18",
+      "meta": {
+        "hn_id": "46309536",
+        "comments_read": 5
+      }
+    }
+  ],
+  "cited_ids": [
+    "E2",
+    "E1",
+    "E7",
+    "E3"
+  ],
+  "final_score": 6,
+  "review_status": "accepted_with_issues",
+  "unresolved_issues": [
+    {
+      "id": "I1",
+      "severity": "major",
+      "kind": "missing_coverage",
+      "detail": "The draft claims 'Leadership support from Linus Torvalds and Greg Kroah-Hartman reinforces the strategic direction' in the conclusion but provides no citation, and the body never explicitly cites E4, E5, or E6 which directly document this support.",
+      "suggestion": "Add a sentence in the 'Overall Developer Sentiment' or 'Conclusion' section citing [E4][E5][E6] to explicitly back the claim about Torvalds and Kroah-Hartman's endorsement."
+    },
+    {
+      "id": "I2",
+      "severity": "minor",
+      "kind": "clarity",
+      "detail": "The 'Compile-time safety' section includes a discussion about the MIT license of the Moss project [E3], which is a licensing/governance issue, not a compile-time safety issue.",
+      "suggestion": "Move the Moss licensing discussion to the 'Concerns and Criticisms' section or a new 'Licensing and Ecosystem' subsection to maintain logical coherence."
+    },
+    {
+      "id": "I3",
+      "severity": "minor",
+      "kind": "unsupported_claim",
+      "detail": "The opening paragraph states developers raise concerns about 'licensing of third-party projects' as a general sentiment, but the only evidence for this is the specific HN discussion about the Moss project [E3], which is a niche third-party kernel, not the mainline Rust integration.",
+      "suggestion": "Qualify the opening statement to clarify that licensing concerns are primarily raised in the context of third-party projects like Moss, rather than implying it is a mainstream concern for the mainline kernel Rust integration."
+    }
+  ],
+  "plan": [
+    {
+      "id": 1,
+      "question": "What is the overall sentiment among developers regarding the introduction of Rust into the Linux kernel?",
+      "status": "answered"
+    },
+    {
+      "id": 2,
+      "question": "What are the main advantages developers cite for using Rust in the kernel?",
+      "status": "answered"
+    },
+    {
+      "id": 3,
+      "question": "What concerns or criticisms do developers express about Rust in the kernel?",
+      "status": "answered"
+    },
+    {
+      "id": 4,
+      "question": "Are there any notable examples or anecdotes from developers about early Rust contributions to the kernel?",
+      "status": "answered"
+    },
+    {
+      "id": 5,
+      "question": "What specific developer quotes or statements support claims about compile\u2011time safety, tooling productivity, contribution workflow, and performance concerns?",
+      "status": "answered"
+    }
+  ],
+  "stats": {
+    "turns": 5,
+    "tasks": 6,
+    "failed_tasks": 0,
+    "tool_calls": 16,
+    "drafts": 2,
+    "duration_s": 198.7,
+    "tokens": {
+      "coordinator": 13533,
+      "web_researcher": 15455,
+      "hn_scout": 22464,
+      "article_reader": 4741,
+      "writer": 6747,
+      "critic": 6748
+    }
+  }
+}

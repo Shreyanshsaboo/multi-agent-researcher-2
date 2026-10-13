@@ -221,7 +221,7 @@ CI runs all of these on every push and pull request
 │   └── src/
 │       ├── components/      answer, live steps, agent graph, timeline, trace, review
 │       └── lib/             event-sourced run state, SSE store, API client
-├── docs/                    synopsis, design, input/output spec, sample run
+├── docs/                    synopsis, design, input/output spec, sample runs
 ├── prototype/               the v1 Streamlit prototype, kept for reference
 ├── Dockerfile
 ├── render.yaml              one-click deployment on Render
@@ -235,13 +235,13 @@ CI runs all of these on every push and pull request
 | [docs/synopsis.md](docs/synopsis.md) | The project in one page: problem, approach, outcome |
 | [docs/design.md](docs/design.md) | Architecture, agent roles, orchestration pattern, communication, state and memory, guardrails, failure recovery, rate-limit strategy, technology choices |
 | [docs/io-spec.md](docs/io-spec.md) | Input and output definitions: the run request, the result, the event trace, and what agents exchange |
-| [docs/samples/](docs/samples/) | A real captured run: its trace, result and report |
+| [docs/samples/](docs/samples/) | Three real captured runs, each with its trace, result and report |
 
 ## Known limitations
 
 - **Speed on Groq's free tier.** Each model allows 8,000 tokens per minute, and qwen also caps output
   at 1,000 tokens per minute. A quick run uses 35–70K tokens across three models, so on the free tier
-  it takes about one to two and a half minutes, most of it waiting for quota. The provider layer
+  it takes about two to three and a half minutes, most of it waiting for quota. The provider layer
   routes calls to whichever model has room, but cannot add capacity. A paid tier removes this.
 - **Search quality.** Web and news search go through the keyless `ddgs` library, whose results
   for broad "latest news" questions are often stale or thin. The coordinator then spends turns on

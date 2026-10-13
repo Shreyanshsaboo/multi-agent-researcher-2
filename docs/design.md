@@ -2,7 +2,7 @@
 
 This document describes how the Multi-Agent Researcher is built and why. Every rule it states is
 in the code; the module that implements it is named alongside. The request, result and event formats
-are specified separately in [io-spec.md](io-spec.md), and [samples/](samples/) holds a real run.
+are specified separately in [io-spec.md](io-spec.md), and [samples/](samples/) holds three real runs.
 
 ## Contents
 
@@ -30,6 +30,60 @@ narrow responsibilities. One agent decides the order of work at run time, every 
 against what the tools really returned, and an independent reviewer gets the last word on quality.
 
 ## 2. Architecture
+
+### Agents and the messages between them
+
+Every agent, and every message that passes between them, in the direction it flows. Each solid
+arrow is a `message` kind in the run's trace (section 5). Dashed arrows are reads from the shared
+evidence store. The orchestrator carries every message: it is code, not an agent, and it holds no
+research strategy (section 4).
+
+```mermaid
+flowchart TB
+    user([User])
+
+    subgraph orch["Orchestrator: carries every message, validates each decision, enforces the budget"]
+        coord["<b>Coordinator</b><br/>plans, delegates, re-plans, decides when to stop<br/>gpt-oss-120b"]
+        subgraph researchers["Researchers: up to 3 tasks in parallel"]
+            direction LR
+            hn["<b>HN Scout</b><br/>Hacker News stories and comments<br/>gpt-oss-20b"]
+            web["<b>Web Researcher</b><br/>web and news search<br/>gpt-oss-120b"]
+            reader["<b>Article Reader</b><br/>full text of chosen sources<br/>gpt-oss-20b"]
+        end
+        ev[("<b>Evidence store</b><br/>checked sources E1, E2, ...")]
+        subgraph review["Write and review"]
+            direction LR
+            writer["<b>Writer</b><br/>cited report; fixes or disputes issues<br/>gpt-oss-120b"]
+            critic["<b>Critic</b><br/>fact-checks each draft<br/>qwen3.8-27b"]
+        end
+    end
+
+    user -->|query| coord
+    coord -->|task| hn & web
+    coord -->|task + URLs| reader
+    hn & web & reader -->|result| coord
+    hn & web & reader -->|findings| ev
+    ev -.->|evidence index| coord
+    ev -.->|sources| writer & critic
+    coord -->|brief| writer
+    writer -->|draft| critic
+    critic -->|critique| writer
+    critic -->|verdict| coord
+    coord -->|report| user
+```
+
+| Flow | What travels |
+|---|---|
+| Coordinator → researchers | A task: an instruction, the reason for it, and for the Article Reader the URLs or evidence ids to read |
+| Researchers → Coordinator | A result: status, a short report, the evidence ids saved, errors |
+| Researchers → evidence store | Findings that passed the source and figure checks (section 7) |
+| Evidence store → Coordinator | A one-line-per-source index; the coordinator never sees raw tool output |
+| Evidence store → Writer, Critic | Every source with its key points |
+| Coordinator → Writer | A brief: what to write, or which issues to fix |
+| Writer ↔ Critic | A draft with the writer's response to each earlier issue; the critic's issues back |
+| Critic → Coordinator | A verdict, score and research requests, from which the coordinator re-plans |
+
+### System components
 
 ```mermaid
 flowchart TB
@@ -146,8 +200,9 @@ execute decisions, and make sure every run ends with a result.
 ### An example run
 
 The coordinator chooses the path each time, so runs differ. This one shows every agent and a
-revision round; the [sample run](samples/) took a different path, drafting straight after the first
-research turn and never calling the article reader.
+revision round. The [captured runs](samples/) took three other paths: one drafted straight after the
+first research turn and then researched the critic's gaps, one sent the article reader to read two
+sources in full before drafting, and one worked around a web search outage.
 
 ```mermaid
 sequenceDiagram
@@ -301,7 +356,10 @@ At startup, runs still marked `running` are marked failed, since they died with 
 
 **Fault injection.** A run can be started with `simulate_failures` (in the UI under Options, or
 `--fail` in the CLI). Every tool call of the named researchers then fails, which demonstrates the
-coordinator re-planning around an outage.
+coordinator re-planning around an outage. In the [web search outage sample](samples/sqlite-web-outage/),
+the web researcher failed on two turns; the coordinator then sent the article reader to Hacker News
+threads and to sources recalled from earlier runs, and the run still ended with a cited, reviewed
+report.
 
 ## 9. Model access and rate limits
 

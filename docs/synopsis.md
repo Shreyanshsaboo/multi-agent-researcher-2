@@ -12,6 +12,15 @@ the few that matter, keeping facts apart from opinions, and writing it up with c
 check. A single LLM given every tool at once tends to skip steps, lose track of where a claim came
 from, and state figures it never retrieved.
 
+## Who it is for
+
+Developers, engineering leads and computer science students who need a sourced overview of a
+current technical topic: what is happening, and what practitioners think of it. Typical uses are
+weighing up a tool before adopting it, preparing for a design discussion, or catching up on a debate
+such as Rust in the Linux kernel. They want an answer in a few minutes, with every claim linked to a
+source they can open, instead of an hour across Hacker News threads, search results and articles, or
+a chatbot answer they cannot check.
+
 ## Approach
 
 The work is split among six agents with narrow roles, coordinated at run time rather than by a fixed
@@ -30,6 +39,23 @@ Findings reach the shared evidence store only if their source was really retriev
 appear in the retrieved text. Budgets bound every run, and failures of tools, agents or model quotas
 are routed around, so a run always ends with a result.
 
+## Changes since the CA2 proposal
+
+The proposal had four agents, built as the v1 prototype that is kept in [`prototype/`](../prototype/):
+a team lead, delegating through Agno's `Team`, and three researchers for Hacker News, web search and
+articles. The team lead also wrote the report. The problem, the target user and the sources stay the
+same. Three things changed, each because of what the prototype showed:
+
+- **Six agents instead of four.** The team lead planned and wrote, and nothing checked its report, so
+  unsupported claims and figures no source contained reached the user. Planning and writing are now
+  separate agents (the Coordinator and the Writer), and a new Critic on a different model family
+  reviews every draft before the user sees it.
+- **Our own orchestration loop instead of Agno's `Team`.** `Team` delegation could not be budgeted,
+  validated or traced step by step. The Coordinator now returns one structured decision per turn,
+  which the orchestrator checks and executes, and every step is recorded in the run's trace.
+- **A web app instead of Streamlit.** The React interface shows every agent, message and tool call
+  live, keeps conversations for follow-up questions, and saves each run as a replayable trace.
+
 ## Input and output
 
 - **Input**: a question, a depth (`quick`, `standard` or `deep`, which sets the budget), and
@@ -42,13 +68,15 @@ Both are specified in [io-spec.md](io-spec.md).
 ## Outcome
 
 The system runs end to end as a web app (live view of every agent, message and tool call), a CLI and
-an API, packaged as one Docker container. The [sample run](samples/) shows a complete cycle on the
-question "How are teams cutting LLM inference costs in 2026?".
-In 132 seconds on the free tier, over five coordinator turns, the team ran five research tasks and
-collected ten sources. The critic rejected the first draft (5/10) for claims the evidence did not
-support and named two gaps; the coordinator sent the web researcher after them, the orchestrator
-dropped a task that repeated an earlier one, and the critic approved the revised draft (8/10), which
-cites nine of the ten sources.
+an API, packaged as one Docker container. Three real runs are captured in [samples/](samples/),
+each with its full trace. On "How are teams cutting LLM inference costs in 2026?", the critic
+rejected the first draft (5/10) for claims the evidence did not support and named two gaps; the
+coordinator sent the web researcher after them, and the critic approved the revised draft (8/10).
+On "What do developers think about Rust in the Linux kernel?", all six agents acted, including the
+article reader reading two sources in full. In a third run, every web search failed on purpose, and
+the coordinator switched to the other researchers and to sources recalled from earlier runs; the run
+still ended with a cited, reviewed report. Each run took two to three and a half minutes on the free
+tier.
 
 ## Technology
 
@@ -59,7 +87,8 @@ SQLite; React 19 with Vite and Tailwind; Docker. The design and the reasons behi
 
 ## Limitations and next steps
 
-- On Groq's free tier a run takes one to three minutes, mostly waiting for per-minute token quotas.
+- On Groq's free tier a run takes two to three and a half minutes, mostly waiting for per-minute
+  token quotas.
   A paid tier would bring it to well under a minute.
 - Keyless web search often returns stale results for "latest news" questions; a search API would
   improve the researchers' raw material.
