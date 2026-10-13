@@ -3,7 +3,7 @@
 # Render asks for GROQ_API_KEY when the blueprint is created; it is never stored in the repository.
 services:
   - type: web
-    name: multi-agent-researcher
+    name: multi-agent-researcher-2
     runtime: docker
     plan: free
     healthCheckPath: /api/health
