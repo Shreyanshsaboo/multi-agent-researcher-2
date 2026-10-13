@@ -1,9 +1,11 @@
 # Render blueprint: one web service built from the Dockerfile.
 # Deploy: https://render.com/deploy?repo=https://github.com/Shreyanshsaboo/multi-agent-researcher-2
 # Render asks for GROQ_API_KEY when the blueprint is created; it is never stored in the repository.
+# The blueprint matches services by name, so this must stay the name of the deployed service. Its
+# URL is multi-agent-researcher-cfbf.onrender.com, because the plain subdomain was already taken.
 services:
   - type: web
-    name: multi-agent-researcher-2
+    name: multi-agent-researcher
     runtime: docker
     plan: free
     healthCheckPath: /api/health
