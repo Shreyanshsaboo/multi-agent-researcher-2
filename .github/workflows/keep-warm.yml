@@ -1,0 +1,20 @@
+name: Keep the live demo awake
+
+# Render's free plan stops a service after 15 idle minutes, and the next visit then waits about a
+# minute for it to start. A health check every 10 minutes keeps the demo responsive, and a failed
+# run is the first sign that the deployment is down.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    name: Health check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping the live demo
+        run: curl --fail --silent --show-error --max-time 120 --retry 3 --retry-delay 15 https://multi-agent-researcher-cfbf.onrender.com/api/health

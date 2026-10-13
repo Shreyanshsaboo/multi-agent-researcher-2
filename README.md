@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/Shreyanshsaboo/multi-agent-researcher-2/actions/workflows/ci.yml/badge.svg)](https://github.com/Shreyanshsaboo/multi-agent-researcher-2/actions/workflows/ci.yml)
 
+**Live demo: <https://multi-agent-researcher-cfbf.onrender.com>**
+
 Six cooperating LLM agents that research a question across Hacker News and the web, read the most
 important sources, and return a cited report that an independent critic has fact-checked. The run is
 streamed live to a React interface, so you can watch the agents plan, delegate, retry and argue.
@@ -110,10 +112,12 @@ Open <http://localhost:8000>.
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Shreyanshsaboo/multi-agent-researcher-2)
 
-The repository includes a [Render blueprint](render.yaml) that builds the same container. Render asks
-for `GROQ_API_KEY` when the service is created. The free plan stops after 15 idle minutes, so the
-first request after a pause takes about a minute, and the run history resets on each deploy. Any other
-host that runs a Dockerfile works too: the container listens on `$PORT`.
+The repository includes a [Render blueprint](render.yaml) that builds the same container, and the
+[live demo](https://multi-agent-researcher-cfbf.onrender.com) runs from it. Render asks for
+`GROQ_API_KEY` when the service is created. The free plan stops a service after 15 idle minutes,
+so a [scheduled workflow](.github/workflows/keep-warm.yml) checks its health every 10 minutes to keep
+it responsive. The run history resets on each deploy. Any other host that runs a Dockerfile works
+too: the container listens on `$PORT`.
 
 ### Run for development
 
@@ -221,7 +225,7 @@ CI runs all of these on every push and pull request
 │   └── src/
 │       ├── components/      answer, live steps, agent graph, timeline, trace, review
 │       └── lib/             event-sourced run state, SSE store, API client
-├── docs/                    synopsis, design, input/output spec, sample runs
+├── docs/                    synopsis, design, input/output spec, sample run
 ├── prototype/               the v1 Streamlit prototype, kept for reference
 ├── Dockerfile
 ├── render.yaml              one-click deployment on Render
@@ -235,13 +239,13 @@ CI runs all of these on every push and pull request
 | [docs/synopsis.md](docs/synopsis.md) | The project in one page: problem, approach, outcome |
 | [docs/design.md](docs/design.md) | Architecture, agent roles, orchestration pattern, communication, state and memory, guardrails, failure recovery, rate-limit strategy, technology choices |
 | [docs/io-spec.md](docs/io-spec.md) | Input and output definitions: the run request, the result, the event trace, and what agents exchange |
-| [docs/samples/](docs/samples/) | Three real captured runs, each with its trace, result and report |
+| [docs/samples/](docs/samples/) | A real captured run: its trace, result and report |
 
 ## Known limitations
 
 - **Speed on Groq's free tier.** Each model allows 8,000 tokens per minute, and qwen also caps output
   at 1,000 tokens per minute. A quick run uses 35–70K tokens across three models, so on the free tier
-  it takes about two to three and a half minutes, most of it waiting for quota. The provider layer
+  it takes about one to two and a half minutes, most of it waiting for quota. The provider layer
   routes calls to whichever model has room, but cannot add capacity. A paid tier removes this.
 - **Search quality.** Web and news search go through the keyless `ddgs` library, whose results
   for broad "latest news" questions are often stale or thin. The coordinator then spends turns on
