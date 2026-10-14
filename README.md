@@ -245,7 +245,7 @@ CI runs all of these on every push and pull request
 
 - **Speed on Groq's free tier.** Each model allows 8,000 tokens per minute, and qwen also caps output
   at 1,000 tokens per minute. A quick run uses 35–70K tokens across three models, so on the free tier
-  it takes about one to two and a half minutes, most of it waiting for quota. The provider layer
+  it takes about two to three and a half minutes, most of it waiting for quota. The provider layer
   routes calls to whichever model has room, but cannot add capacity. A paid tier removes this.
 - **Search quality.** Web and news search go through the keyless `ddgs` library, whose results
   for broad "latest news" questions are often stale or thin. The coordinator then spends turns on
