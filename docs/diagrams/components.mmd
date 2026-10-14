@@ -1,0 +1,24 @@
+flowchart TB
+    ui["<b>Browser</b>: React 19 UI<br/>event-sourced run state"]
+    subgraph server["One Docker container: FastAPI process"]
+        api["HTTP API + SSE stream<br/><i>main.py</i>"]
+        mgr["Run manager<br/><i>runner.py</i>"]
+        orch["Orchestrator loop<br/><i>orchestrator.py</i>"]
+        agents["Agents (Agno): Coordinator, HN Scout,<br/>Web Researcher, Article Reader,<br/>Writer, Critic"]
+        tools["Tools + ToolContext <i>tools/</i><br/>calls Algolia HN API, ddgs search,<br/>article hosts"]
+        ev[("Evidence store<br/><i>evidence.py</i>")]
+        prov["Provider transport <i>provider.py</i><br/>calls the Groq API<br/>(three models)"]
+        chan["Event channel<br/><i>events.py</i>"]
+    end
+    db[("SQLite<br/>runs, events")]
+    ui -->|"POST /api/runs"| api
+    api -.->|"events over SSE"| ui
+    api --> mgr --> orch
+    orch <-->|"decisions, tasks, drafts"| agents
+    agents -->|"tool calls"| tools
+    agents -->|"model calls"| prov
+    tools -->|"checked findings"| ev
+    ev -.->|sources| agents
+    orch -->|events| chan
+    chan --> db
+    chan -.-> api

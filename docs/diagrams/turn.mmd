@@ -1,0 +1,14 @@
+flowchart TB
+    start(["Turn starts"]) --> bud{"Budget left?<br/>(turns, time)"}
+    bud -- no --> wrap(["Wrap up: make sure a draft exists;<br/>result = latest draft"])
+    bud -- yes --> dec["Coordinator reads the rendered run state<br/>and returns one CoordinatorDecision"]
+    dec -- "agent fails" --> fb["Fixed fallback policy:<br/>research, then draft, then finish"]
+    dec --> val["Orchestrator validates the decision:<br/>repeats, unknown URLs, empty evidence,<br/>no draft yet, task limit, last turn"]
+    fb --> val
+    val -. "if corrected" .-> note["Note for the coordinator's<br/>next turn + guardrail event"]
+    val --> act{"Action"}
+    act -- delegate --> del["Run 1–3 researcher tasks<br/>in parallel; record each TaskResult"]
+    act -- draft --> wr["Writer drafts or revises →<br/>citation check → Critic reviews"]
+    act -- "finish or reject" --> stop(["Run result"])
+    del -- "next turn" --> start
+    wr -- "next turn" --> start

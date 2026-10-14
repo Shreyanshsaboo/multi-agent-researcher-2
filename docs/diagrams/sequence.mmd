@@ -1,0 +1,39 @@
+sequenceDiagram
+    actor U as User
+    participant C as Coordinator
+    participant H as HN Scout
+    participant W as Web
+    participant R as Reader
+    participant Wr as Writer
+    participant Cr as Critic
+    U->>C: query (0 s)
+    Note over C: Turn 1: plan 4 sub-questions
+    par T1 and T2
+        C->>H: T1: HN threads
+        C->>W: T2: recent articles
+    end
+    H-->>C: success
+    W-->>C: success (E1, E2)
+    Note over C: Turn 2 (41 s): read sources
+    par T3 and T4
+        C->>R: T3: read E1
+        C->>R: T4: read E2
+    end
+    R-->>C: success x2
+    Note over C: Turn 3 (70 s): draft
+    C->>Wr: brief
+    Wr->>Cr: draft v1
+    Cr-->>Wr: 5 issues
+    Cr-->>C: REVISE 6/10
+    Note over C: Turn 4 (93 s): research gaps
+    par T5 and T6
+        C->>W: T5: maintainers
+        C->>H: T6: more threads
+    end
+    W-->>C: partial
+    H-->>C: partial (E4–E7)
+    Note over C: Turn 5 (174 s): revise
+    C->>Wr: brief: fix issues
+    Wr->>Cr: draft v2
+    Cr-->>C: REVISE 6/10, 3 issues
+    C-->>U: v2, accepted with issues (199 s)
