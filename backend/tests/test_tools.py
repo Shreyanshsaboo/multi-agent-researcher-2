@@ -139,3 +139,86 @@ def test_select_passages_keeps_short_text_whole():
     excerpt, trimmed = select_passages(text, "anything")
     assert not trimmed
     assert "Second paragraph" in excerpt
+
+async def test_web_search_empty_results_give_guidance(make_ctx, monkeypatch):
+    class FakeDDGS:
+        def text(self, query, **kwargs):
+            return []
+
+    monkeypatch.setattr(web, "DDGS", FakeDDGS)
+
+    ctx = make_ctx(agent_id="web_researcher")
+    web_search, _ = make_web_tools(ctx)
+
+    out = await web_search("unknown research topic")
+
+    assert "No web results" in out
+    assert "Rephrase or broaden" in out
+    assert not ctx.seen
+
+
+async def test_web_search_ignores_missing_urls(make_ctx, monkeypatch):
+    class FakeDDGS:
+        def text(self, query, **kwargs):
+            return [
+                {"title": "Missing URL", "body": "No link"},
+                {
+                    "title": "Valid Result",
+                    "href": "https://example.com/research",
+                    "body": "Useful information",
+                },
+            ]
+
+    monkeypatch.setattr(web, "DDGS", FakeDDGS)
+
+    ctx = make_ctx(agent_id="web_researcher")
+    web_search, _ = make_web_tools(ctx)
+
+    out = await web_search("research")
+
+    assert "Valid Result" in out
+    assert "Missing URL" not in out
+    assert len(ctx.seen) == 1
+
+
+async def test_news_search_invalid_timelimit_defaults_to_month(make_ctx, monkeypatch):
+    received = {}
+
+    class FakeDDGS:
+        def news(self, query, **kwargs):
+            received.update(kwargs)
+            return []
+
+    monkeypatch.setattr(web, "DDGS", FakeDDGS)
+
+    ctx = make_ctx(agent_id="web_researcher")
+    _, news_search = make_web_tools(ctx)
+
+    out = await news_search("artificial intelligence", timelimit="invalid")
+
+    assert received["timelimit"] == "m"
+    assert "No news in that period" in out
+
+
+async def test_web_search_limits_results_to_eight(make_ctx, monkeypatch):
+    class FakeDDGS:
+        def text(self, query, **kwargs):
+            return [
+                {
+                    "title": f"Result {i}",
+                    "href": f"https://example.com/article-{i}",
+                    "body": f"Article {i}",
+                }
+                for i in range(12)
+            ]
+
+    monkeypatch.setattr(web, "DDGS", FakeDDGS)
+
+    ctx = make_ctx(agent_id="web_researcher")
+    web_search, _ = make_web_tools(ctx)
+
+    out = await web_search("research", max_results=20)
+
+    assert len(ctx.seen) == 8
+    assert "Result 7" in out
+    assert "Result 8" not in out
