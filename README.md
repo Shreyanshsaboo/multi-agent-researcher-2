@@ -226,7 +226,7 @@ CI runs all of these on every push and pull request
 │   └── src/
 │       ├── components/      answer, live steps, agent graph, timeline, trace, review
 │       └── lib/             event-sourced run state, SSE store, API client
-├── docs/                    synopsis, design, input/output spec, sample run
+├── docs/                    synopsis, design, input/output spec, three sample runs
 ├── prototype/               the v1 Streamlit prototype, kept for reference
 ├── Dockerfile
 ├── render.yaml              one-click deployment on Render
@@ -240,7 +240,7 @@ CI runs all of these on every push and pull request
 | [docs/synopsis.md](docs/synopsis.md) | The project in one page: problem, approach, outcome |
 | [docs/design.md](docs/design.md) | Architecture, agent roles, orchestration pattern, communication, state and memory, guardrails, failure recovery, rate-limit strategy, technology choices |
 | [docs/io-spec.md](docs/io-spec.md) | Input and output definitions: the run request, the result, the event trace, and what agents exchange |
-| [docs/samples/](docs/samples/) | A real captured run: its trace, result and report |
+| [docs/samples/](docs/samples/) | Three real captured runs, each with its trace, result and report |
 
 ## Known limitations
 
