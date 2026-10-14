@@ -4,20 +4,20 @@
 
 **Live demo: <https://multi-agent-researcher-cfbf.onrender.com>**
 
-Six cooperating LLM agents that research a question across Hacker News and the web, read the most
-important sources, and return a cited report that an independent critic has fact-checked. The run is
-streamed live to a React interface, so you can watch the agents plan, delegate, retry and argue.
+Six LLM agents research a question across Hacker News and the web, read the most important sources,
+and write a cited report that a critic agent has checked. The run streams live to a React interface,
+where you can watch the agents plan, delegate, retry and argue.
 
-- **Dynamic orchestration.** A coordinator agent plans the research and decides every next step at
-  run time. Nothing about the order of work is hard-coded.
-- **Grounded output.** Every finding is checked against what the tools actually returned, every
-  figure must appear in the retrieved text, and every claim in the report cites its source.
-- **Writer–critic loop.** A critic on a different model family reviews each draft. The writer fixes
-  or disputes each issue, and the coordinator settles disagreements.
-- **Resilient by design.** Budgets, guardrails, fault injection, rate-limit routing across models and
-  fallback paths mean every run ends with a result, even when agents or tools fail.
-- **Fully traceable.** Every message, tool call and decision is an event. Runs persist in SQLite, and
-  each one can be replayed or downloaded as a JSON trace.
+- A coordinator agent plans the research and decides each next step at run time. The order of work
+  is not hard-coded.
+- Every finding is checked against what the tools returned, every figure must appear in the
+  retrieved text, and every claim in the report cites its source.
+- A critic on a different model family reviews each draft. The writer fixes or disputes each issue,
+  and the coordinator settles disagreements.
+- Budgets, guardrails, rate-limit routing across models and fallback paths make every run end with a
+  result, even when agents or tools fail. Failures can be injected on purpose to test this.
+- Every message, tool call and decision is recorded as an event. Runs are stored in SQLite and can
+  be replayed or downloaded as a JSON trace.
 
 ## Contents
 
@@ -244,15 +244,16 @@ CI runs all of these on every push and pull request
 
 ## Known limitations
 
-- **Speed on Groq's free tier.** Each model allows 8,000 tokens per minute, and qwen also caps output
-  at 1,000 tokens per minute. A quick run uses 35–70K tokens across three models, so on the free tier
-  it takes about two to three and a half minutes, most of it waiting for quota. The provider layer
-  routes calls to whichever model has room, but cannot add capacity. A paid tier removes this.
-- **Search quality.** Web and news search go through the keyless `ddgs` library, whose results
-  for broad "latest news" questions are often stale or thin. The coordinator then spends turns on
-  extra research.
-- **Paywalls.** The article reader cannot read pages behind paywalls or bot protection. It reports
-  those as failures, and the coordinator works around them.
+- Runs are slow on Groq's free tier. Each model allows 8,000 tokens per minute, and qwen also caps
+  output at 1,000 tokens per minute. A quick run uses 35–70K tokens across three models, so on the
+  free tier it takes about two to three and a half minutes, most of it waiting for quota. The
+  provider layer routes calls to whichever model has room, but cannot add capacity. A paid tier
+  removes this.
+- Search results can be stale. Web and news search go through the keyless `ddgs` library, whose
+  results for broad "latest news" questions are often stale or thin. The coordinator then spends
+  turns on extra research.
+- The article reader cannot read pages behind paywalls or bot protection. It reports those as
+  failures, and the coordinator works around them.
 
 ## Team
 
