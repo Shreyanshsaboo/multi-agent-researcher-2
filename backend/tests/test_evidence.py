@@ -77,3 +77,88 @@ def test_closest_url_forgives_a_mis_copied_long_url_but_never_guesses_between_sh
     assert closest_url(real.replace("esports-event-returns", "esports-returns"), known) == normalize_url(real)
     assert closest_url("https://variety.com/2026/sports/news/nba", known) is None
     assert closest_url("https://elsewhere.com/2026/10/08/tmt-newswire", known) is None
+
+
+def test_tracking_parameters_do_not_create_duplicate_evidence():
+    store = EvidenceStore()
+    first, created = store.add(
+        url="https://example.com/article?id=42&utm_source=newsletter",
+        title="Article",
+        source_type="web",
+        agent="web_researcher",
+        key_points=["Original finding"],
+    )
+    second, created_again = store.add(
+        url="https://www.example.com/article/?id=42&fbclid=tracking",
+        title="Same article",
+        source_type="article",
+        agent="article_reader",
+        key_points=["Additional finding"],
+    )
+
+    assert created
+    assert not created_again
+    assert first.id == second.id
+    assert len(store) == 1
+    assert second.found_by == ["web_researcher", "article_reader"]
+
+
+def test_evidence_key_points_are_limited_and_deduplicated():
+    store = EvidenceStore()
+    item, _ = store.add(
+        url="https://example.com/report",
+        title="Report",
+        source_type="web",
+        agent="web_researcher",
+        key_points=["Fact A", "Fact A", "Fact B", "Fact C"],
+    )
+    store.add(
+        url="https://example.com/report",
+        title="Report",
+        source_type="article",
+        agent="article_reader",
+        key_points=["Fact D", "Fact E", "Fact F", "Fact G"],
+    )
+
+    assert len(item.key_points) <= 6
+    assert item.key_points.count("Fact A") == 1
+
+
+def test_citation_check_deduplicates_repeated_ids():
+    store = EvidenceStore()
+    store.add(
+        url="https://example.com/source",
+        title="Source",
+        source_type="web",
+        agent="web_researcher",
+        key_points=["Verified fact"],
+    )
+
+    result = check_citations(
+        "First claim [E1]. Second claim [E1]. Unknown [E9]. Again [E9].",
+        store,
+    )
+
+    assert result.cited_ids == ["E1", "E9"]
+    assert result.unknown_ids == ["E9"]
+
+
+def test_find_by_url_accepts_normalized_variants():
+    store = EvidenceStore()
+    item, _ = store.add(
+        url="https://www.example.com/story/?id=7&utm_medium=email",
+        title="Story",
+        source_type="web",
+        agent="web_researcher",
+        key_points=["Finding"],
+    )
+
+    assert store.find_by_url("https://example.com/story?id=7") is item
+    assert store.find_by_url("https://example.com/story?id=8") is None
+
+
+def test_empty_evidence_renders_placeholder():
+    store = EvidenceStore()
+
+    assert store.render_index() == "(empty)"
+    assert store.render_full() == "(empty)"

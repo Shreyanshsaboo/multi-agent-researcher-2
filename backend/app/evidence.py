@@ -95,7 +95,7 @@ class EvidenceStore:
         Returns the item and whether it was newly created.
         """
         key = normalize_url(url)
-        points = [p.strip() for p in key_points if p and p.strip()]
+        points = list(dict.fromkeys(p.strip() for p in key_points if p and p.strip()))
 
         existing_id = self._by_url.get(key)
         if existing_id:
