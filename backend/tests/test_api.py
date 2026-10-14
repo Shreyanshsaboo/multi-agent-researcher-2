@@ -126,3 +126,48 @@ def test_follow_up_to_unknown_conversation_is_404(client):
     response = client.post("/api/runs", json={"query": "anything at all", "thread_id": "missing"})
     assert response.status_code == 404
     assert client.get("/api/threads/missing").status_code == 404
+
+
+@pytest.mark.parametrize("endpoint,collection", [
+    ("/api/runs", "runs"),
+    ("/api/threads", "threads"),
+])
+@pytest.mark.parametrize("limit", [-10, 0, 1, 100, 1000])
+def test_listing_limits_are_accepted(client, endpoint, collection, limit):
+    response = client.get(endpoint, params={"limit": limit})
+    assert response.status_code == 200
+    assert isinstance(response.json()[collection], list)
+
+
+@pytest.mark.parametrize("path", [
+    "/api/runs/missing/trace",
+    "/api/runs/missing/report.md",
+])
+def test_missing_run_downloads_return_404(client, path):
+    assert client.get(path).status_code == 404
+
+
+def test_sse_reconnect_resumes_from_last_event_id(client):
+    run_id = client.post(
+        "/api/runs",
+        json={"query": "What changed in LLM pricing?"},
+    ).json()["run_id"]
+
+    events = read_stream(client, run_id)
+    last_seen = len(events) - 2
+
+    resumed = []
+    with client.stream(
+        "GET",
+        f"/api/runs/{run_id}/events",
+        headers={"Last-Event-ID": str(last_seen)},
+    ) as response:
+        assert response.status_code == 200
+        for line in response.iter_lines():
+            if line.startswith("data: ") and line != "data: {}":
+                resumed.append(json.loads(line[6:]))
+
+    assert [event["seq"] for event in resumed] == [
+        last_seen + 1,
+        last_seen + 2,
+    ]
