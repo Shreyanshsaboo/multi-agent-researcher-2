@@ -139,3 +139,69 @@ def test_select_passages_keeps_short_text_whole():
     excerpt, trimmed = select_passages(text, "anything")
     assert not trimmed
     assert "Second paragraph" in excerpt
+
+async def test_news_search_requests_extra_results_to_replace_filtered_items(
+    make_ctx, monkeypatch
+):
+    requested = []
+
+    class FakeDDGS:
+        def news(self, query, **kwargs):
+            requested.append(kwargs["max_results"])
+            return [
+                {
+                    "title": "Sponsored",
+                    "url": "https://www.bing.com/aclick?ad=1",
+                    "body": "advertisement",
+                },
+                {
+                    "title": "Missing URL",
+                    "body": "invalid result",
+                },
+                *[
+                    {
+                        "title": f"Article {i}",
+                        "url": f"https://example.com/news/{i}",
+                        "body": f"News article {i}",
+                    }
+                    for i in range(5)
+                ],
+            ]
+
+    monkeypatch.setattr(web, "DDGS", FakeDDGS)
+
+    ctx = make_ctx(agent_id="web_researcher")
+    _, news_search = make_web_tools(ctx)
+
+    out = await news_search("technology", max_results=5)
+
+    assert requested == [8]
+    assert out.count("url: https://example.com/news/") == 5
+    assert "aclick" not in out
+    assert "Missing URL" not in out
+    assert len(ctx.seen) == 5
+
+
+async def test_news_search_never_returns_more_than_requested(
+    make_ctx, monkeypatch
+):
+    class FakeDDGS:
+        def news(self, query, **kwargs):
+            return [
+                {
+                    "title": f"Article {i}",
+                    "url": f"https://example.com/article/{i}",
+                    "body": "Relevant news",
+                }
+                for i in range(10)
+            ]
+
+    monkeypatch.setattr(web, "DDGS", FakeDDGS)
+
+    ctx = make_ctx(agent_id="web_researcher")
+    _, news_search = make_web_tools(ctx)
+
+    out = await news_search("technology", max_results=3)
+
+    assert out.count("url: https://example.com/article/") == 3
+    assert len(ctx.seen) == 3

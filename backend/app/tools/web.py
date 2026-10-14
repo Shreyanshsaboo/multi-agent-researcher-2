@@ -46,15 +46,19 @@ def _web_results(query: str, max_results: int) -> list[dict[str, Any]]:
 
 
 def _news_results(query: str, max_results: int, timelimit: str) -> list[dict[str, Any]]:
-    raw = _search("news", query, max_results=max_results, timelimit=timelimit)
+    raw = _search("news", query, max_results=max_results + 3, timelimit=timelimit)
     results = []
     for r in raw:
         url = r.get("url") or ""
         if url and not _is_ad(url):
-            results.append({"title": r.get("title") or domain_of(url), "url": url,
-                            "snippet": r.get("body") or "", "date": (r.get("date") or "")[:10],
-                            "publisher": r.get("source")})
-    return results
+            results.append({
+                "title": r.get("title") or domain_of(url),
+                "url": url,
+                "snippet": r.get("body") or "",
+                "date": (r.get("date") or "")[:10],
+                "publisher": r.get("source"),
+            })
+    return results[:max_results]
 
 
 def format_results(results: list[dict[str, Any]]) -> str:
