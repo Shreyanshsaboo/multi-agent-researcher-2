@@ -1,0 +1,29 @@
+flowchart TB
+    user([User])
+    subgraph orch["Orchestrator (code, not an agent): carries every message, validates each decision, enforces the budget"]
+        coord["<b>Coordinator</b><br/>plans, delegates, re-plans,<br/>settles disputes, decides when to stop<br/><i>gpt-oss-120b</i>"]
+        subgraph researchers["Researchers: up to 3 tasks run in parallel per turn"]
+            direction LR
+            hn["<b>HN Scout</b><br/>Hacker News stories<br/>and comment threads<br/><i>gpt-oss-20b</i>"]
+            web["<b>Web Researcher</b><br/>web and news search<br/><i>gpt-oss-120b</i>"]
+            reader["<b>Article Reader</b><br/>full text of chosen sources<br/><i>gpt-oss-20b</i>"]
+        end
+        ev[("<b>Evidence store</b><br/>checked sources E1, E2, ...")]
+        subgraph review["Write and review loop"]
+            direction LR
+            writer["<b>Writer</b><br/>cited report; fixes<br/>or disputes issues<br/><i>gpt-oss-120b</i>"]
+            critic["<b>Critic</b><br/>fact-checks each draft<br/><i>qwen3.8-27b</i>"]
+        end
+    end
+    user -->|"1 query"| coord
+    coord -->|"2 task"| hn & web
+    coord -->|"2 task + URLs"| reader
+    hn & web & reader -->|"3 result"| coord
+    hn & web & reader ==>|"findings (evidence events)"| ev
+    ev -.->|evidence index| coord
+    ev -.->|sources + key points| writer & critic
+    coord -->|"4 brief"| writer
+    writer -->|"5 draft"| critic
+    critic -->|"6 critique"| writer
+    critic -->|"7 verdict"| coord
+    coord -->|"8 final report"| user

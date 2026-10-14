@@ -1,0 +1,40 @@
+sequenceDiagram
+    actor U as User
+    participant C as Coordinator
+    participant H as HN Scout
+    participant W as Web Researcher
+    participant R as Article Reader
+    participant Wr as Writer
+    participant Cr as Critic
+    U->>C: query (0 s)
+    Note over C: Turn 1: plan 4 sub-questions
+    par T1 and T2 in parallel
+        C->>H: task T1 (HN threads)
+        C->>W: task T2 (recent articles)
+    end
+    H-->>C: success: top thread + comments
+    W-->>C: success: Phoronix, Spiceworks (E1, E2)
+    Note over C: Turn 2 (41 s): read the two key sources
+    par T3 and T4 in parallel
+        C->>R: task T3: read E1
+        C->>R: task T4: read E2
+    end
+    R-->>C: success x2 (E1, E2 now read in full)
+    Note over C: Turn 3 (70 s): draft
+    C->>Wr: brief
+    Wr->>Cr: draft v1
+    Cr-->>Wr: critique: 5 issues
+    Cr-->>C: verdict REVISE 6/10
+    Note over C: Turn 4 (93 s): research the critic's issues
+    par T5 and T6 in parallel
+        C->>W: task T5: maintainers' statements
+        C->>H: task T6: further threads
+    end
+    W-->>C: partial
+    H-->>C: partial
+    Note over C: four more sources, E4–E7
+    Note over C: Turn 5 (174 s): revise
+    C->>Wr: brief: fix the issues
+    Wr->>Cr: draft v2
+    Cr-->>C: verdict REVISE 6/10, 3 issues
+    C-->>U: turn limit reached: v2, accepted with issues (199 s)

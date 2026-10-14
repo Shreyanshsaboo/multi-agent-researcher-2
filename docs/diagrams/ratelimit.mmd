@@ -1,0 +1,14 @@
+flowchart TB
+    req(["Agent's model call"]) --> est["Estimate tokens:<br/>request size ÷ 3.5 + 800 for the reply"]
+    est --> own{"Own model's bucket<br/>has room within 3 s?"}
+    own -- yes --> send["Reserve the tokens and send"]
+    own -- no --> alt{"Another team model has room?<br/>(never an output-capped model;<br/>for the critic, never the writer's family)"}
+    alt -- yes --> rer["Send to that model<br/>(model_fallback event)"]
+    alt -- no --> wait["Wait until the first bucket refills<br/>(rate_limited event), then send"]
+    send --> resp{"Groq response"}
+    rer --> resp
+    wait --> resp
+    resp -- "200" --> ok(["Update the bucket from<br/>the rate-limit headers; return"])
+    resp -- "429, per-minute" --> charge(["Count the rejected request as spent,<br/>then route again (at most 6 times)"])
+    resp -- "429, daily quota" --> ex(["Mark the model exhausted and skip it;<br/>Agno's fallback models take over"])
+    resp -- "400 tool_use_failed" --> again(["Send the same request again<br/>(at most 2 times)"])
