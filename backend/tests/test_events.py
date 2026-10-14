@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import suppress
 
 from app.events import RunChannel
 
@@ -51,6 +52,7 @@ async def test_subscribe_after_seq_skips_seen_events_on_closed_channel():
     received = [e["type"] async for e in channel.subscribe(after=1)]
     assert received == ["b", "c"]
 
+
 async def test_closed_channel_replays_events_without_registering_subscriber():
     channel = RunChannel("closed-run")
     channel.emit("run_started")
@@ -61,6 +63,7 @@ async def test_closed_channel_replays_events_without_registering_subscriber():
 
     assert [event["seq"] for event in received] == [1, 2]
     assert channel._subscribers == set()
+
 
 async def test_multiple_subscribers_receive_same_live_event():
     channel = RunChannel("multi-run")
@@ -97,10 +100,8 @@ async def test_subscriber_cleanup_when_consumer_is_cancelled():
     assert len(channel._subscribers) == 1
 
     task.cancel()
-    try:
+    with suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
 
     assert channel._subscribers == set()
 
