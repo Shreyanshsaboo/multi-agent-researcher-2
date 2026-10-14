@@ -262,7 +262,7 @@ commit history alone understates who did what. This table records each person's 
 | Member | GitHub | Contributions |
 |---|---|---|
 | Shreyansh Saboo (roll no. TODO) | [@Shreyanshsaboo](https://github.com/Shreyanshsaboo) | TODO |
-| TODO (roll no. TODO) | [@dhootraghav](https://github.com/dhootraghav) | TODO |
+| Raghav Dhoot (roll no. 23070122170) | [@dhootraghav](https://github.com/dhootraghav) | TODO |
 | TODO (roll no. TODO) | [@dhruvgupta0603](https://github.com/dhruvgupta0603) | TODO |
 | TODO (roll no. TODO) | [@sukaransingh123](https://github.com/sukaransingh123) | TODO |
 
