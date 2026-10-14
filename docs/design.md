@@ -34,9 +34,10 @@ against what the tools really returned, and an independent reviewer gets the las
 ### Agents and the messages between them
 
 Every agent, and every message that passes between them, in the direction it flows. Each solid
-arrow is a `message` kind in the run's trace (section 5). Dashed arrows are reads from the shared
-evidence store. The orchestrator carries every message: it is code, not an agent, and it holds no
-research strategy (section 4).
+arrow between two agents, or between an agent and the user, is a `message` in the run's trace,
+labelled with its kind (section 5). The `findings` arrows are `evidence` events, which add checked
+sources to the shared evidence store, and dashed arrows are reads from it. The orchestrator carries
+every message: it is code, not an agent, and it holds no research strategy (section 4).
 
 ```mermaid
 flowchart TB
@@ -59,27 +60,27 @@ flowchart TB
     end
 
     user -->|query| coord
-    coord -->|task| hn & web
-    coord -->|task + URLs| reader
+    coord -->|decision, task| hn & web
+    coord -->|decision, task + URLs| reader
     hn & web & reader -->|result| coord
     hn & web & reader -->|findings| ev
     ev -.->|evidence index| coord
     ev -.->|sources| writer & critic
-    coord -->|brief| writer
+    coord -->|decision, brief| writer
     writer -->|draft| critic
     critic -->|critique| writer
     critic -->|verdict| coord
-    coord -->|report| user
+    coord -->|final| user
 ```
 
 | Flow | What travels |
 |---|---|
-| Coordinator → researchers | A task: an instruction, the reason for it, and for the Article Reader the URLs or evidence ids to read |
+| Coordinator → researchers | The decision that sends them (the coordinator's reasoning and updated plan), then a task: an instruction, the reason for it, and for the Article Reader the URLs or evidence ids to read |
 | Researchers → Coordinator | A result: status, a short report, the evidence ids saved, errors |
 | Researchers → evidence store | Findings that passed the source and figure checks (section 7) |
 | Evidence store → Coordinator | A one-line-per-source index; the coordinator never sees raw tool output |
 | Evidence store → Writer, Critic | Every source with its key points |
-| Coordinator → Writer | A brief: what to write, or which issues to fix |
+| Coordinator → Writer | The decision to draft, then a brief: what to write, or which issues to fix |
 | Writer ↔ Critic | A draft with the writer's response to each earlier issue; the critic's issues back |
 | Critic → Coordinator | A verdict, score and research requests, from which the coordinator re-plans |
 
