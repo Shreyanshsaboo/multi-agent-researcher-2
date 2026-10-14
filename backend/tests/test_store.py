@@ -86,3 +86,53 @@ def test_databases_from_before_threads_are_migrated(tmp_path):
     store = RunStore(path)
     assert store.get_run("old")["thread_id"] == "old"
     assert store.list_threads()[0]["thread_id"] == "old"
+
+def test_get_missing_run_returns_none():
+    store = RunStore(":memory:")
+
+    assert store.get_run("nonexistent") is None
+    assert store.events("nonexistent") == []
+    assert store.thread_runs("nonexistent") == []
+
+
+def test_events_are_isolated_between_runs():
+    store = RunStore(":memory:")
+    store.create_run("r1", "First research", {})
+    store.create_run("r2", "Second research", {})
+
+    store.append_event("r1", {"seq": 1, "type": "started"})
+    store.append_event("r2", {"seq": 1, "type": "completed"})
+    store.append_event("r1", {"seq": 2, "type": "progress"})
+
+    assert [e["type"] for e in store.events("r1")] == [
+        "started",
+        "progress",
+    ]
+    assert [e["type"] for e in store.events("r2")] == ["completed"]
+
+
+def test_mark_interrupted_only_fails_running_runs():
+    store = RunStore(":memory:")
+    store.create_run("completed", "Finished research", {})
+    store.finish_run("completed", "completed", {"title": "Done"})
+
+    store.create_run("running", "Active research", {})
+
+    assert store.mark_interrupted() == 1
+    assert store.get_run("completed")["status"] == "completed"
+    assert store.get_run("running")["status"] == "failed"
+
+    assert store.mark_interrupted() == 0
+
+
+def test_event_with_duplicate_sequence_replaces_previous_payload():
+    store = RunStore(":memory:")
+    store.create_run("r1", "Research", {})
+
+    store.append_event("r1", {"seq": 1, "type": "started"})
+    store.append_event("r1", {"seq": 1, "type": "updated"})
+
+    events = store.events("r1")
+
+    assert len(events) == 1
+    assert events[0]["type"] == "updated"
