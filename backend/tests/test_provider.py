@@ -212,3 +212,52 @@ async def test_an_output_limit_holds_the_model_back_without_shrinking_its_token_
     assert len(seen) == 2
     assert clock.waits == [pytest.approx(8.7 + provider.WAIT_MARGIN_S)]
     assert provider.bucket(QWEN).capacity == provider.DEFAULT_TOKENS_PER_MIN
+
+
+@pytest.mark.parametrize("message,expected", [
+    (
+        "Error in organization `org_private123` while processing request",
+        "Error while processing request",
+    ),
+    (
+        "Rate limit exceeded. Need more tokens? Upgrade your plan.",
+        "Rate limit exceeded.",
+    ),
+    (
+        "Temporary provider failure",
+        "Temporary provider failure",
+    ),
+])
+def test_provider_error_sanitization_edge_cases(message, expected):
+    assert provider.clean_provider_message(message) == expected
+
+
+def test_provider_error_message_handles_plain_text_response():
+    response = httpx.Response(
+        503,
+        text="Provider temporarily unavailable",
+    )
+    assert provider._error_message(response) == "Provider temporarily unavailable"
+
+
+def test_provider_error_message_handles_missing_error_field():
+    response = httpx.Response(
+        400,
+        json={"message": "Unexpected response format"},
+    )
+    assert provider._error_message(response)
+
+
+def test_provider_error_message_removes_organization_identifier():
+    response = httpx.Response(
+        429,
+        json={
+            "error": {
+                "message": "Rate limited in organization `org_secret123`"
+            }
+        },
+    )
+
+    message = provider._error_message(response)
+    assert "org_secret123" not in message
+    assert "Rate limited" in message
