@@ -50,3 +50,66 @@ async def test_subscribe_after_seq_skips_seen_events_on_closed_channel():
     channel.close()
     received = [e["type"] async for e in channel.subscribe(after=1)]
     assert received == ["b", "c"]
+
+async def test_closed_channel_replays_events_without_registering_subscriber():
+    channel = RunChannel("closed-run")
+    channel.emit("run_started")
+    channel.emit("run_completed")
+    channel.close()
+
+    received = [event async for event in channel.subscribe()]
+
+    assert [event["seq"] for event in received] == [1, 2]
+    assert channel._subscribers == set()
+
+async def test_multiple_subscribers_receive_same_live_event():
+    channel = RunChannel("multi-run")
+    received = []
+
+    async def consume(name):
+        async for event in channel.subscribe():
+            received.append((name, event["type"]))
+
+    first = asyncio.create_task(consume("first"))
+    second = asyncio.create_task(consume("second"))
+    await asyncio.sleep(0)
+
+    channel.emit("agent_status", agent="writer", state="working")
+    channel.close()
+
+    await asyncio.wait_for(asyncio.gather(first, second), timeout=1)
+
+    assert ("first", "agent_status") in received
+    assert ("second", "agent_status") in received
+    assert channel._subscribers == set()
+
+
+async def test_subscriber_cleanup_when_consumer_is_cancelled():
+    channel = RunChannel("cancel-run")
+
+    async def consume():
+        async for _ in channel.subscribe():
+            pass
+
+    task = asyncio.create_task(consume())
+    await asyncio.sleep(0)
+
+    assert len(channel._subscribers) == 1
+
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    assert channel._subscribers == set()
+
+
+async def test_closed_channel_with_no_new_events_returns_empty_replay():
+    channel = RunChannel("empty-run")
+    channel.emit("run_started")
+    channel.close()
+
+    received = [event async for event in channel.subscribe(after=1)]
+
+    assert received == []
