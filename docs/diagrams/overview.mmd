@@ -1,11 +1,12 @@
-flowchart LR
-    q(["User question<br/>+ depth"]) --> C["<b>Coordinator</b><br/>plans and decides<br/>every next step"]
-    C -->|tasks, in parallel| R["<b>Researchers</b><br/>HN Scout · Web Researcher<br/>· Article Reader"]
-    R -->|checked findings| E[("<b>Evidence store</b><br/>E1, E2, ...")]
+flowchart TB
+    q(["User question + depth"]) --> C["<b>Coordinator</b><br/>plans and decides every next step"]
+    C -->|"tasks, in parallel"| R["<b>Researchers</b><br/>HN Scout · Web Researcher · Article Reader"]
     R -->|results| C
+    R -->|checked findings| E[("<b>Evidence store</b><br/>E1, E2, ...")]
     C -->|brief| W["<b>Writer</b><br/>cited draft"]
-    E -.-> W
-    W -->|draft| K["<b>Critic</b><br/>fact-checks against<br/>the evidence"]
+    E -.->|sources| W
+    E -.->|sources| K
+    W -->|draft| K["<b>Critic</b><br/>fact-checks against the evidence"]
     K -->|issues| W
-    K -->|verdict, gaps| C
-    C -->|"finish"| out(["Cited report<br/>+ review status + trace"])
+    K -->|"verdict, research gaps"| C
+    C -->|finish| out(["Cited report + review status + trace"])
