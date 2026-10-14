@@ -30,6 +30,7 @@ streamed live to a React interface, so you can watch the agents plan, delegate, 
 - [Project structure](#project-structure)
 - [Documentation](#documentation)
 - [Known limitations](#known-limitations)
+- [Team](#team)
 - [License](#license)
 
 ## How it works
@@ -252,6 +253,18 @@ CI runs all of these on every push and pull request
   extra research.
 - **Paywalls.** The article reader cannot read pages behind paywalls or bot protection. It reports
   those as failures, and the coordinator works around them.
+
+## Team
+
+Most of the system was built in joint working sessions and committed from one account, so the
+commit history alone understates who did what. This table records each person's part.
+
+| Member | GitHub | Contributions |
+|---|---|---|
+| Shreyansh Saboo (roll no. TODO) | [@Shreyanshsaboo](https://github.com/Shreyanshsaboo) | TODO |
+| TODO (roll no. TODO) | [@dhootraghav](https://github.com/dhootraghav) | TODO |
+| TODO (roll no. TODO) | [@dhruvgupta0603](https://github.com/dhruvgupta0603) | TODO |
+| TODO (roll no. TODO) | [@sukaransingh123](https://github.com/sukaransingh123) | TODO |
 
 ## License
 
