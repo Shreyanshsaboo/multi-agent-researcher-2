@@ -26,14 +26,14 @@ a chatbot answer they cannot check.
 The work is split among six agents with narrow roles, coordinated at run time rather than by a fixed
 pipeline:
 
-- The **Coordinator** turns the question into sub-questions and, on every turn, decides what happens
+- The Coordinator turns the question into sub-questions and, on every turn, decides what happens
   next: which researchers to send, what to read, when to draft, and when the report is good enough.
-- Three researchers work in parallel with their own tools. The **HN Scout** reads Hacker News
-  discussions for practitioner opinion, the **Web Researcher** searches the web and news for facts,
-  and the **Article Reader** reads the full text of the sources that matter most.
-- The **Writer** drafts the report from the shared evidence, citing a source for every claim.
-- The **Critic**, on a different model family from the writer, checks each draft against the
-  evidence. The writer fixes or disputes each issue, and the coordinator settles disagreements.
+- Three researchers work in parallel with their own tools. The HN Scout reads Hacker News
+  discussions for practitioner opinion, the Web Researcher searches the web and news for facts, and
+  the Article Reader reads the full text of the sources that matter most.
+- The Writer drafts the report from the shared evidence, citing a source for every claim.
+- The Critic, on a different model family from the writer, checks each draft against the evidence.
+  The writer fixes or disputes each issue, and the coordinator settles disagreements.
 
 Findings reach the shared evidence store only if their source was really retrieved and their figures
 appear in the retrieved text. Budgets bound every run, and failures of tools, agents or model quotas
@@ -46,21 +46,21 @@ a team lead, delegating through Agno's `Team`, and three researchers for Hacker 
 articles. The team lead also wrote the report. The problem, the target user and the sources stay the
 same. Three things changed, each because of what the prototype showed:
 
-- **Six agents instead of four.** The team lead planned and wrote, and nothing checked its report, so
-  unsupported claims and figures no source contained reached the user. Planning and writing are now
-  separate agents (the Coordinator and the Writer), and a new Critic on a different model family
-  reviews every draft before the user sees it.
-- **Our own orchestration loop instead of Agno's `Team`.** `Team` delegation could not be budgeted,
+- There are six agents instead of four. The team lead planned and wrote, and nothing checked its
+  report, so unsupported claims and figures no source contained reached the user. Planning and
+  writing are now separate agents (the Coordinator and the Writer), and a new Critic on a different
+  model family reviews every draft before the user sees it.
+- Our own orchestration loop replaced Agno's `Team`, whose delegation could not be budgeted,
   validated or traced step by step. The Coordinator now returns one structured decision per turn,
   which the orchestrator checks and executes, and every step is recorded in the run's trace.
-- **A web app instead of Streamlit.** The React interface shows every agent, message and tool call
+- A React web app replaced the Streamlit interface. It shows every agent, message and tool call
   live, keeps conversations for follow-up questions, and saves each run as a replayable trace.
 
 ## Input and output
 
-- **Input**: a question, a depth (`quick`, `standard` or `deep`, which sets the budget), and
+- Input: a question, a depth (`quick`, `standard` or `deep`, which sets the budget), and
   optionally the conversation it follows up and simulated outages for a demonstration.
-- **Output**: a Markdown report with numbered citations, its sources, the critic's verdict and score,
+- Output: a Markdown report with numbered citations, its sources, the critic's verdict and score,
   the research plan, run statistics, and the complete event trace of the run.
 
 Both are specified in [io-spec.md](io-spec.md).

@@ -34,9 +34,10 @@ against what the tools really returned, and an independent reviewer gets the las
 ### Agents and the messages between them
 
 Every agent, and every message that passes between them, in the direction it flows. Each solid
-arrow is a `message` kind in the run's trace (section 5). Dashed arrows are reads from the shared
-evidence store. The orchestrator carries every message: it is code, not an agent, and it holds no
-research strategy (section 4).
+arrow between two agents, or between an agent and the user, is a `message` in the run's trace,
+labelled with its kind (section 5). The `findings` arrows are `evidence` events, which add checked
+sources to the shared evidence store, and dashed arrows are reads from it. The orchestrator carries
+every message: it is code, not an agent, and it holds no research strategy (section 4).
 
 ```mermaid
 flowchart TB
@@ -59,27 +60,27 @@ flowchart TB
     end
 
     user -->|query| coord
-    coord -->|task| hn & web
-    coord -->|task + URLs| reader
+    coord -->|decision, task| hn & web
+    coord -->|decision, task + URLs| reader
     hn & web & reader -->|result| coord
     hn & web & reader -->|findings| ev
     ev -.->|evidence index| coord
     ev -.->|sources| writer & critic
-    coord -->|brief| writer
+    coord -->|decision, brief| writer
     writer -->|draft| critic
     critic -->|critique| writer
     critic -->|verdict| coord
-    coord -->|report| user
+    coord -->|final| user
 ```
 
 | Flow | What travels |
 |---|---|
-| Coordinator → researchers | A task: an instruction, the reason for it, and for the Article Reader the URLs or evidence ids to read |
+| Coordinator → researchers | The decision that sends them (the coordinator's reasoning and updated plan), then a task: an instruction, the reason for it, and for the Article Reader the URLs or evidence ids to read |
 | Researchers → Coordinator | A result: status, a short report, the evidence ids saved, errors |
 | Researchers → evidence store | Findings that passed the source and figure checks (section 7) |
 | Evidence store → Coordinator | A one-line-per-source index; the coordinator never sees raw tool output |
 | Evidence store → Writer, Critic | Every source with its key points |
-| Coordinator → Writer | A brief: what to write, or which issues to fix |
+| Coordinator → Writer | The decision to draft, then a brief: what to write, or which issues to fix |
 | Writer ↔ Critic | A draft with the writer's response to each earlier issue; the critic's issues back |
 | Critic → Coordinator | A verdict, score and research requests, from which the coordinator re-plans |
 
@@ -150,32 +151,31 @@ flowchart TB
 
 Design rules behind the split:
 
-- **Narrow tools.** Each researcher has only the tools for its kind of source, so tool selection is
-  unambiguous and the coordinator, not the worker, decides which kind of source to pursue.
-- **Separation of planning and doing.** The coordinator never searches or writes, and never sees raw
-  tool output. It routes on summaries and an evidence index, which keeps its context small.
-- **Independent review.** The critic runs on a different model family from the writer (qwen
-  against gpt-oss), so the two do not share blind spots. When the critic's model is out of tokens it
-  may only borrow models from other families (`Settings.alternate_models`).
-- **Researchers run in parallel.** Up to three tasks per turn run concurrently, each with its own
-  `ToolContext`.
+- Each researcher has only the tools for its kind of source. A worker never has to choose between
+  kinds of source; the coordinator makes that choice.
+- The coordinator plans but never searches or writes, and never sees raw tool output. It routes on
+  summaries and an evidence index, which keeps its context small.
+- The critic runs on a different model family from the writer (qwen against gpt-oss), so the two do
+  not share blind spots. When the critic's model is out of tokens it may only borrow models from
+  other families (`Settings.alternate_models`).
+- Up to three research tasks per turn run in parallel, each with its own `ToolContext`.
 
 The agent prompts are in the agent modules: `coordinator.py`, `workers.py` (one shared protocol for
 the three researchers, plus a specialty paragraph each), `writer.py` and `critic.py`.
 
 ## 4. Orchestration pattern
 
-The system combines three patterns:
+The system combines three patterns.
 
-1. **Coordinator-led dynamic planning (supervisor and workers).** An LLM supervisor decides every step
-   at run time from the current state. There is no fixed pipeline: the same code produces "HN and
-   web in parallel, then read two articles, then draft" for one query and "draft immediately from
-   earlier sources" for a follow-up such as "summarise that".
-2. **Blackboard.** Researchers do not talk to each other. They write validated findings to a shared
+1. Supervisor and workers, with the plan made at run time. The coordinator, an LLM, decides every
+   step from the current state. There is no fixed pipeline: the same code produces "HN and web in
+   parallel, then read two articles, then draft" for one query and "draft immediately from earlier
+   sources" for a follow-up such as "summarise that".
+2. A blackboard. Researchers do not talk to each other. They write validated findings to a shared
    evidence store, and the writer and critic read from it. Findings for the same URL from different
    agents merge into one item.
-3. **Generator and critic loop.** Every draft goes to the critic. The coordinator decides whether to
-   revise, research gaps the critic named, or finish.
+3. A generator and critic loop. Every draft goes to the critic, and the coordinator decides whether
+   to revise, research the gaps the critic named, or finish.
 
 ### The loop
 
@@ -354,30 +354,33 @@ At startup, runs still marked `running` are marked failed, since they died with 
 | A model is out of its daily quota | It is skipped for the rest of the day | `model_fallback` |
 | The run fails outright | The run is marked failed with the error | `run_failed` |
 
-**Fault injection.** A run can be started with `simulate_failures` (in the UI under Options, or
-`--fail` in the CLI). Every tool call of the named researchers then fails, which demonstrates the
-coordinator re-planning around an outage. In the [web search outage sample](samples/sqlite-web-outage/),
-the web researcher failed on two turns; the coordinator then sent the article reader to Hacker News
-threads and to sources recalled from earlier runs, and the run still ended with a cited, reviewed
-report.
+Failures can be injected on purpose. A run started with `simulate_failures` (in the UI under
+Options, or `--fail` in the CLI) makes every tool call of the named researchers fail, and the
+coordinator has to re-plan around the outage. In the [web search outage
+sample](samples/sqlite-web-outage/), the web researcher failed on two turns; the coordinator then
+sent the article reader to Hacker News threads and to sources recalled from earlier runs, and the
+run still ended with a cited, reviewed report.
 
 ## 9. Model access and rate limits
 
 All agents call Groq through one shared HTTP client whose transport (`provider.ResilientTransport`)
 replaces the SDK's retries. On the free tier each model has its own per-minute token bucket (8,000
 tokens; qwen also limits input to 7,000 and output to 1,000 tokens per minute), and one research run
-needs 35–70K tokens. Three behaviours were found in live runs and shape the transport:
+needs 35–70K tokens. Three behaviours seen in live runs shaped the transport.
 
-1. **A rejected request is charged to the bucket anyway.** Resending when the 429's `retry-after`
-   says is therefore always rejected again, and an early version spent a researcher's whole timeout
-   in that loop. The transport keeps its own estimate of each model's bucket from the rate-limit
-   headers of every response and the figures in every 429, and only sends a request it expects to fit.
-2. **Buckets are per model.** When an agent's own model has no room, the call goes to a team model
-   that has, rather than waiting. All three models accept the same request parameters, so only the
-   request's `model` changes. qwen lends to no one: its 1,000 output tokens a minute are kept for
-   the critic, which can run on no other model, since it never borrows the writer's model family.
-3. **Daily quotas are not worth waiting for.** A model past its daily quota is marked exhausted and
-   skipped, and `llm.build_model_chain` gives every agent the team's other models as fallbacks.
+1. Groq charges a rejected request to the bucket anyway. Resending when the 429's `retry-after` says
+   is therefore always rejected again, and an early version spent a researcher's whole timeout in
+   that loop. The transport keeps its own estimate of each model's bucket from the rate-limit
+   headers of every response and the figures in every 429, and only sends a request it expects to
+   fit.
+2. Each model has its own bucket. When an agent's own model has no room, the call goes to a team
+   model that has room instead of waiting. All three models accept the same request parameters, so
+   only the request's `model` changes. qwen lends to no one: its 1,000 output tokens a minute are
+   kept for the critic, which can run on no other model, since it never borrows the writer's model
+   family.
+3. A daily quota resets only the next day, so the transport does not wait for it. A model past its
+   daily quota is marked exhausted and skipped, and `llm.build_model_chain` gives every agent the
+   team's other models as fallbacks.
 
 Every reroute and wait is an event, and an agent's `metrics` event records which models served it.
 
@@ -393,7 +396,7 @@ Every reroute and wait is an event, and an agent's `metrics` event records which
 | **React 19, Vite, Tailwind** | An event-sourced client: one reducer (`runState.applyEvent`) turns the event stream into every view, live or replayed | Server-rendered pages (no live view of the agents) |
 | **Algolia HN API** | Keyword search, date filters and a whole comment thread in one request | The official Firebase API (no search; one request per comment) |
 | **ddgs** for web and news search | Keyless and free, rotating across several engines when one returns nothing | Paid search APIs (keys and cost for a course project) |
-| **newspaper4k** for articles | Robust main-text extraction across news sites | Raw HTML (navigation and ads would fill the context) |
+| **newspaper4k** for articles | Extracts the main text of most news sites cleanly | Raw HTML (navigation and ads would fill the context) |
 | **One Docker container** | API and built frontend on one port, one thing to deploy | Separate frontend hosting (two deployments to keep in step) |
 
 ## 11. Testing
