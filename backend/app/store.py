@@ -139,6 +139,9 @@ class RunStore:
         )
         return [dict(row) for row in rows]
 
+    def runs_since(self, since: float) -> int:
+        return self._execute("SELECT COUNT(*) FROM runs WHERE created_at > ?", (since,))[0][0]
+
     def thread_runs(self, thread_id: str) -> list[dict[str, Any]]:
         rows = self._execute("SELECT * FROM runs WHERE thread_id = ? ORDER BY created_at", (thread_id,))
         return [self._run_dict(row) for row in rows]

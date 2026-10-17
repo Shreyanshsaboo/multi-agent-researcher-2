@@ -43,7 +43,7 @@ The sample run's request:
 | `202 {"run_id": "...", "thread_id": "..."}` | The run started. A new conversation's `thread_id` equals its `run_id` |
 | `422` | The request does not match the schema |
 | `404` | `thread_id` names no conversation |
-| `429` | `MAX_ACTIVE_RUNS` runs are already in progress |
+| `429` | `MAX_ACTIVE_RUNS` runs are already in progress, or `MAX_RUNS_PER_DAY` runs started in the last 24 hours |
 | `503` | No model is configured on the server |
 
 ## 2. Output: the run result
