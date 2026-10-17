@@ -251,7 +251,9 @@ sequenceDiagram
 Each run has a depth (`quick`, `standard`, `deep`) that sets hard limits: coordinator turns, drafts,
 parallel tasks per turn, findings per task, URLs per article read, and wall-clock time
 (`config.BUDGETS`). The coordinator sees what is left on every turn and is told to draft or finish
-when one or two turns remain.
+when one or two turns remain. The time limit also holds inside a turn: a turn still running when
+time is up is cancelled, and the writer gets two more minutes for a last draft before the run falls
+back to the evidence digest.
 
 ## 5. Communication
 

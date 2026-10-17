@@ -1,5 +1,7 @@
 """Orchestrator behaviour with scripted agents: routing, re-planning, revision and recovery."""
 
+import asyncio
+
 import pytest
 
 from app.agents import AgentFailure
@@ -190,6 +192,22 @@ async def test_turn_limit_stops_research_and_still_writes_a_report():
     assert result.review_status == "unreviewed"
     assert "turn limit" in result.message
     assert any(e.get("rule") == "budget" for e in channel.events)
+
+
+async def test_time_limit_stops_a_turn_that_runs_over():
+    class HangingCritic:
+        async def review(self, state, draft, checks):
+            await asyncio.sleep(30)
+
+    coordinator = ScriptedCoordinator([delegate("web_researcher"), decision("draft")])
+    budget = Budget(max_turns=6, max_drafts=2, max_tasks_per_turn=2, max_findings_per_task=3,
+                    max_urls_per_read=2, time_limit_s=0.2)
+    orchestrator, _, _ = build(coordinator, critic=HangingCritic(), budget=budget)
+    result = await asyncio.wait_for(orchestrator.run(), 5)
+
+    assert result.report_markdown
+    assert result.review_status == "unreviewed"
+    assert "time limit" in result.message
 
 
 async def test_writer_outage_yields_an_unreviewed_evidence_digest():
