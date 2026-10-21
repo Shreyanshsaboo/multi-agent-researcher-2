@@ -170,6 +170,9 @@ class ToolContext:
                 f"Dropped {len(dropped)} point(s) for {finding.url} with figures not in the source: "
                 + " | ".join(dropped),
             )
+        if not points and dropped:
+            # The source is real even when every summary of it was not; keep the tool's own text.
+            points = [" ".join(meta.text.split())[:MAX_POINT_CHARS]]
         if not points:
             return f"REJECTED {finding.url}: no key point was supported by the retrieved text."
 
