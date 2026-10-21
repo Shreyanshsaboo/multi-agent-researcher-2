@@ -116,7 +116,7 @@ Open <http://localhost:8000>.
 The repository includes a [Render blueprint](render.yaml) that builds the same container, and the
 [live demo](https://multi-agent-researcher-cfbf.onrender.com) runs from it. Render asks for
 `GROQ_API_KEY` when the service is created. The free plan stops a service after 15 idle minutes,
-so a [scheduled workflow](.github/workflows/keep-warm.yml) checks its health every 10 minutes to keep
+so a [scheduled workflow](.github/workflows/keep-warm.yml) checks its health every 5 minutes to keep
 it responsive. The run history resets on each deploy. Any other host that runs a Dockerfile works
 too: the container listens on `$PORT`.
 
