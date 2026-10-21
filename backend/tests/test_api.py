@@ -104,6 +104,18 @@ def test_concurrent_run_limit_returns_429(tmp_path):
         assert test_client.post("/api/runs", json={"query": "anything at all"}).status_code == 429
 
 
+def test_daily_run_limit_returns_429(tmp_path):
+    settings = Settings(groq_api_key="k", max_runs_per_day=1, frontend_dist=tmp_path)
+    app = create_app(settings=settings, store=RunStore(":memory:"), suite_factory=fake_suite)
+    with TestClient(app) as test_client:
+        first = test_client.post("/api/runs", json={"query": "anything at all"})
+        assert first.status_code == 202
+        read_stream(test_client, first.json()["run_id"])
+        second = test_client.post("/api/runs", json={"query": "anything at all"})
+        assert second.status_code == 429
+        assert "a day" in second.json()["detail"]
+
+
 def test_follow_up_joins_the_conversation(client):
     first = client.post("/api/runs", json={"query": "What changed in LLM pricing?"}).json()
     assert first["thread_id"] == first["run_id"]
@@ -171,3 +183,16 @@ def test_sse_reconnect_resumes_from_last_event_id(client):
         last_seen + 1,
         last_seen + 2,
     ]
+
+
+def test_frontend_route_serves_only_files_inside_dist(tmp_path):
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("app shell")
+    (dist / "robots.txt").write_text("allow")
+    (tmp_path / ".env").write_text("GROQ_API_KEY=secret")
+    settings = Settings(groq_api_key="k", frontend_dist=dist)
+    with TestClient(create_app(settings=settings, store=RunStore(":memory:"))) as test_client:
+        assert test_client.get("/robots.txt").text == "allow"
+        assert test_client.get("/..%2f.env").text == "app shell"
+        assert test_client.get("/some/client/route").text == "app shell"

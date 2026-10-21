@@ -160,6 +160,7 @@ Settings are read from the environment, and from `.env` in the repository root d
 | `LLM_TIMEOUT_S` | `60` | Timeout of a single model request |
 | `AGENT_TIMEOUT_S` | `240` | Timeout of one agent's whole turn, including its tool loop |
 | `MAX_ACTIVE_RUNS` | `2` | Runs allowed at once (they share the model rate limits) |
+| `MAX_RUNS_PER_DAY` | `10` | Runs allowed in any 24 hours, so a public deployment cannot spend the daily quota |
 | `DB_PATH` | `backend/data/runs.db` | SQLite file for runs, events and conversations |
 
 Each run has a depth, which sets its budget:

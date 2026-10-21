@@ -7,6 +7,7 @@ caps how many runs execute at once, since they share the model rate limits.
 
 import asyncio
 import logging
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import asdict
@@ -80,6 +81,10 @@ class RunManager:
         """Start a run in the background; returns its run id and thread id."""
         if self.active_count >= self.settings.max_active_runs:
             raise TooManyRuns(f"{self.active_count} runs are already in progress; try again shortly")
+        # Anyone can start runs on a public deployment; this keeps them from spending the daily quota.
+        if self.store.runs_since(time.time() - 86400) >= self.settings.max_runs_per_day:
+            raise TooManyRuns(f"the limit of {self.settings.max_runs_per_day} runs a day is reached; "
+                              "try again later")
         conversation: list[dict] = []
         if request.thread_id:
             earlier = self.store.thread_runs(request.thread_id)

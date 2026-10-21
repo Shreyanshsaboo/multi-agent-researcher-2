@@ -83,6 +83,8 @@ class Settings:
     # Generous, because on a free tier most of an agent's time is rate-limit waits.
     agent_timeout_s: int = 240
     max_active_runs: int = 2
+    # The free tier's 200K tokens a day per model cover about ten runs.
+    max_runs_per_day: int = 10
     db_path: Path = BACKEND_DIR / "data" / "runs.db"
     frontend_dist: Path = ROOT_DIR / "frontend" / "dist"
 
@@ -130,5 +132,6 @@ def get_settings() -> Settings:
         llm_timeout_s=_env_int("LLM_TIMEOUT_S", 60),
         agent_timeout_s=_env_int("AGENT_TIMEOUT_S", 240),
         max_active_runs=_env_int("MAX_ACTIVE_RUNS", 2),
+        max_runs_per_day=_env_int("MAX_RUNS_PER_DAY", 10),
         db_path=Path(db_path) if db_path else BACKEND_DIR / "data" / "runs.db",
     )

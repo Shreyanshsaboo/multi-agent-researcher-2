@@ -38,6 +38,8 @@ from app.textutil import similarity
 
 # Keyword overlap above which a task is taken to repeat an earlier one.
 REPEAT_SIMILARITY = 0.6
+# Past the time limit the writer gets this long for a last draft before the evidence digest is used.
+WRAP_UP_S = 120
 
 # ----------------------------------------------------------------- agent interfaces
 
@@ -119,8 +121,14 @@ class Orchestrator:
                 outcome = await self._wrap_up(stop_reason)
                 break
             state.turn += 1
-            decision = await self._decide()
-            outcome = await self._execute(decision)
+            # A turn can hold several agent calls of up to agent_timeout_s each, so the
+            # clock is enforced inside the turn too, not only between turns.
+            try:
+                async with asyncio.timeout(state.time_left_s):
+                    decision = await self._decide()
+                    outcome = await self._execute(decision)
+            except TimeoutError:
+                outcome = await self._wrap_up(f"time limit of {state.budget.time_limit_s}s reached")
 
         result = self._result(outcome)
         channel.message("coordinator", "user", "final",
@@ -383,10 +391,12 @@ class Orchestrator:
         self.channel.emit("guardrail", agent="orchestrator", rule="budget", detail=f"Stopping: {reason}.")
         if not s.drafts and len(s.evidence):
             try:
-                s.drafts.append(await self.suite.writer.write(
-                    s, "The research budget is spent: write the best report you can from the evidence."))
-            except AgentFailure as exc:
-                self.channel.emit("agent_error", agent="writer", error=str(exc))
+                async with asyncio.timeout(WRAP_UP_S):
+                    s.drafts.append(await self.suite.writer.write(
+                        s, "The research budget is spent: write the best report you can from the evidence."))
+            except (AgentFailure, TimeoutError) as exc:
+                self.channel.emit("agent_error", agent="writer",
+                                  error=str(exc) or f"writer timed out after {WRAP_UP_S}s")
                 s.drafts.append(fallback_draft(s, len(s.drafts) + 1))
             self.channel.emit("draft", draft=s.drafts[-1].model_dump())
         if not s.drafts:
