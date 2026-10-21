@@ -259,14 +259,14 @@ CI runs all of these on every push and pull request
 ## Team
 
 Most of the system was built in joint working sessions and committed from one account, so the
-commit history alone understates who did what. This table records each person's part.
+commit history alone understates who did what. The table lists what that history shows.
 
-| Member | Roll no. | GitHub | Contributions |
+| Member | PRN | GitHub | Contributions |
 |---|---|---|---|
-| Shreyansh Suresh Saboo | 23070122205 | [@Shreyanshsaboo](https://github.com/Shreyanshsaboo) | TODO |
-| Sukaran Singh | 23070122213 | [@sukaransingh123](https://github.com/sukaransingh123) | TODO |
-| Raghav Dhoot | 23070122170 | [@dhootraghav](https://github.com/dhootraghav) | TODO |
-| Dhruv Gupta | 23070122258 | [@dhruvgupta0603](https://github.com/dhruvgupta0603) | TODO |
+| Shreyansh Suresh Saboo | 23070122205 | [@Shreyanshsaboo](https://github.com/Shreyanshsaboo) | The v1 prototype, then the six agents, orchestrator, rate-limit handling, SQLite store, API and live event stream, React frontend, Docker and Render deployment, CI, and the docs (PRs #1-#6 and #15 onward) |
+| Sukaran Singh | 23070122213 | [@sukaransingh123](https://github.com/sukaransingh123) | No commits in the repository yet |
+| Raghav Dhoot | 23070122170 | [@dhootraghav](https://github.com/dhootraghav) | Regression tests for the API, provider errors, event stream, storage and web search; a fix for duplicate evidence key points; README fixes (PRs #7-#13; #14, on news search filtering, is still open) |
+| Dhruv Gupta | 23070122258 | [@dhruvgupta0603](https://github.com/dhruvgupta0603) | No commits in the repository yet |
 
 ## License
 
