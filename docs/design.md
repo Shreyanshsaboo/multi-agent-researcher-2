@@ -331,7 +331,7 @@ At startup, runs still marked `running` are marked failed, since they died with 
 | Guardrail | Where | What it prevents |
 |---|---|---|
 | **Source must have been retrieved** (`unseen_source`) | `ToolContext._save` | A worker citing a URL none of its tools returned (an invented source) |
-| **Figures must be in the source** (`ungrounded_figure`) | `ToolContext._save` | A key point whose numbers do not appear in the text the tool returned. The point is dropped |
+| **Figures must be in the source** (`ungrounded_figure`) | `ToolContext._save` | A key point whose numbers do not appear in the text the tool returned. The point is dropped; if no point is left, the source is kept with the tool's own text as its key point |
 | **Near-miss URLs** | `evidence.closest_url` | A long URL copied with a word missing being treated as unknown. Only near-identical URLs on the same site match |
 | **Reader limited to known sources** | `read_article`, `Orchestrator._validate` | The article reader fetching URLs that are not in the evidence store or past research. Evidence ids such as `E3` are accepted |
 | **Decision correction** (`decision_corrected`) | `Orchestrator._validate` | Drafting with no evidence, finishing with no draft, too many tasks, unreadable URLs, a task that repeats an earlier one, research on the last turn that could never reach the report. The coordinator is told what was changed and why |

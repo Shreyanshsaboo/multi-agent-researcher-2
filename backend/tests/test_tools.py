@@ -58,6 +58,20 @@ async def test_points_with_figures_not_in_source_are_dropped(make_ctx, evidence,
     assert any(e.get("rule") == "ungrounded_figure" for e in channel.events)
 
 
+async def test_source_with_only_ungrounded_points_keeps_the_tool_text(make_ctx, evidence):
+    ctx = make_ctx()
+    search, *_ = make_hn_tools(ctx)
+    await search("llm prices")
+    [out] = ctx.save_findings([
+        Finding(url="https://blog.example.com/prices", title="Prices",
+                key_points=["Prices fell 95% in a week"]),
+    ])
+    assert out.startswith("SAVED")
+    [point] = evidence.get("E1").key_points
+    assert "95" not in point
+    assert "Inference prices fell 80% this year" in point
+
+
 async def test_findings_respect_per_task_limit(make_ctx, evidence):
     ctx = make_ctx(max_findings=1)
     search, *_ = make_hn_tools(ctx)
