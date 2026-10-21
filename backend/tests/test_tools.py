@@ -1,6 +1,6 @@
 import app.tools.articles as articles
 import app.tools.web as web
-from app.tools import Finding, make_article_tools, make_hn_tools, make_web_tools
+from app.tools import Finding, SourceMeta, make_article_tools, make_hn_tools, make_web_tools
 from app.tools.articles import select_passages
 
 
@@ -56,6 +56,16 @@ async def test_points_with_figures_not_in_source_are_dropped(make_ctx, evidence,
     assert "1 ungrounded point(s) dropped" in out
     assert evidence.get("E1").key_points == ["Story drew 230 comments"]
     assert any(e.get("rule") == "ungrounded_figure" for e in channel.events)
+
+
+async def test_points_may_quote_the_publication_date(make_ctx, evidence):
+    ctx = make_ctx(agent_id="web_researcher")
+    ctx.remember("https://news.example.com/upset", SourceMeta(
+        title="Oklahoma topples No. 1 Texas", source_type="news",
+        text="Oklahoma topples No. 1 Texas on a last-second field goal", published="2026-10-14"))
+    ctx.save_findings([Finding(url="https://news.example.com/upset", title="Upset",
+                               key_points=["Oklahoma beat No. 1 Texas on 14 Oct 2026"])])
+    assert evidence.get("E1").key_points == ["Oklahoma beat No. 1 Texas on 14 Oct 2026"]
 
 
 async def test_source_with_only_ungrounded_points_keeps_the_tool_text(make_ctx, evidence):

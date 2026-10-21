@@ -27,7 +27,7 @@ function ReviewBadge({ view }: { view: RunView }) {
     );
   }
   if (result.review_status === "unreviewed") {
-    return <span className="text-xs text-ink-3">Not fact-checked (the team ran out of time)</span>;
+    return <span className="text-xs text-ink-3">Not fact-checked by the Critic</span>;
   }
   return null;
 }

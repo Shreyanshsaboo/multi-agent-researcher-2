@@ -151,7 +151,8 @@ class ToolContext:
         if len(self.evidence_ids) >= self.max_findings:
             return f"SKIPPED {finding.url}: finding limit ({self.max_findings}) reached."
 
-        source_numbers = _numbers(meta.text) if meta.text else None
+        # The tool shows the publication date next to the text, so a point may quote it.
+        source_numbers = _numbers(f"{meta.text} {meta.published or ''}") if meta.text else None
         points, dropped = [], []
         for raw in finding.key_points[:MAX_POINTS_PER_FINDING]:
             point = " ".join(raw.split())[:MAX_POINT_CHARS]

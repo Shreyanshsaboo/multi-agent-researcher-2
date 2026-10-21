@@ -1,11 +1,12 @@
 name: Keep the live demo awake
 
 # Render's free plan stops a service after 15 idle minutes, and the next visit then waits about a
-# minute for it to start. A health check every 10 minutes keeps the demo responsive, and a failed
-# run is the first sign that the deployment is down.
+# minute for it to start. GitHub often runs scheduled jobs 10-20 minutes late, so a check is
+# scheduled every 5 minutes to keep the gaps under 15. A failed run is the first sign that the
+# deployment is down.
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 permissions: {}

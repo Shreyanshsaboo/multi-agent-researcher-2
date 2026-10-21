@@ -113,7 +113,7 @@ def test_daily_run_limit_returns_429(tmp_path):
         read_stream(test_client, first.json()["run_id"])
         second = test_client.post("/api/runs", json={"query": "anything at all"})
         assert second.status_code == 429
-        assert "a day" in second.json()["detail"]
+        assert "daily question limit" in second.json()["detail"]
 
 
 def test_follow_up_joins_the_conversation(client):
