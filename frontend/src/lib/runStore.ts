@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 
 import type { RunEvent } from "../types";
 import { api } from "./api";
-import { applyEvent, initialRun, type RunView } from "./runState";
+import { applyEvent, initialRun, settleAgents, type RunView } from "./runState";
 
 /**
  * One event stream per run, shared by every component showing that run.
@@ -24,7 +24,7 @@ function notify(entry: Entry) {
 
 function markClosed(entry: Entry, error: string) {
   if (entry.view.status === "running" || entry.view.status === "connecting") {
-    entry.view = { ...entry.view, status: "failed", error };
+    entry.view = { ...entry.view, status: "failed", agents: settleAgents(entry.view.agents), error };
     notify(entry);
   }
 }
