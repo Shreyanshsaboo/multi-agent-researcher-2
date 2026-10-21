@@ -116,6 +116,12 @@ function agent(view: RunView, id: string): AgentView {
   return view.agents[id] ?? { state: "idle", detail: "", tokens: 0, calls: 0, toolCalls: 0 };
 }
 
+/** Once a run has ended no agent is busy, even if its last status said so (e.g. the server restarted). */
+export function settleAgents(agents: Record<string, AgentView>): Record<string, AgentView> {
+  return Object.fromEntries(Object.entries(agents).map(([id, a]) =>
+    [id, a.state === "error" ? a : { ...a, state: "idle", detail: "" }]));
+}
+
 function patchAgent(view: RunView, id: string, patch: Partial<AgentView>): Record<string, AgentView> {
   return { ...view.agents, [id]: { ...agent(view, id), ...patch } };
 }
@@ -295,12 +301,13 @@ export function applyEvent(view: RunView, event: RunEvent): RunView {
       return {
         ...base,
         status: event.result.status === "rejected" ? "rejected" : "completed",
+        agents: settleAgents(base.agents),
         result: event.result,
         evidence: event.result.evidence.length ? event.result.evidence : base.evidence,
       };
 
     case "run_failed":
-      return { ...base, status: "failed", error: event.error };
+      return { ...base, status: "failed", agents: settleAgents(base.agents), error: event.error };
 
     default:
       return base;

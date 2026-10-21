@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { RunEvent } from "../types";
-import { applyEvent, initialRun, rateLimitText, toolCallCount, totalTokens } from "./runState";
+import { applyEvent, initialRun, rateLimitText, settleAgents, toolCallCount, totalTokens } from "./runState";
 
 let seq = 0;
 function ev(body: Record<string, unknown>): RunEvent {
@@ -104,5 +104,17 @@ describe("applyEvent", () => {
       "Rate limited (tokens per day); switching to a fallback model",
     );
     expect(rateLimitText(limited(null, ""))).toBe("Rate limited by the model provider; retrying");
+  });
+
+  it("leaves no agent busy once the run has ended", () => {
+    const view = replay([
+      started(),
+      ev({ type: "agent_status", agent: "coordinator", state: "waiting", detail: "rate limited, retrying in 5s" }),
+      ev({ type: "agent_status", agent: "hn_scout", state: "error", detail: "" }),
+      ev({ type: "run_failed", error: "boom" }),
+    ]);
+    expect(view.agents.coordinator).toMatchObject({ state: "idle", detail: "" });
+    expect(view.agents.hn_scout.state).toBe("error");
+    expect(settleAgents({ writer: { ...view.agents.coordinator, state: "writing" } }).writer.state).toBe("idle");
   });
 });
