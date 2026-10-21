@@ -119,6 +119,13 @@ export function deriveSteps(view: RunView): Step[] {
       const status = view.agents[step.agent];
       if (status?.state === "waiting") step.note = "waiting for the model provider's rate limit";
     }
+  } else if (view.status !== "connecting") {
+    // A turn cut off at the time limit never reports back, so its steps would spin forever.
+    for (const step of steps) {
+      if (step.state !== "running") continue;
+      step.state = "warn";
+      step.note = "stopped before it finished";
+    }
   }
   return steps;
 }

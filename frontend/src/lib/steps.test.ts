@@ -60,4 +60,14 @@ describe("deriveSteps", () => {
     expect(deriveSteps(v).at(-1)?.state).toBe("running");
     expect(currentActivity(v)).toBe("HN Scout is working…");
   });
+
+  it("stops the spinner on work a finished run cut off", () => {
+    const v = view([
+      message("coordinator", ["hn_scout"], "decision", "Go", { action: "delegate", plan: [{ id: 1 }], turn: 1 }),
+      message("coordinator", ["hn_scout"], "task", "Search HN", { task_id: "T1" }),
+    ]);
+    const last = deriveSteps({ ...v, status: "completed" }).at(-1);
+    expect(last?.state).toBe("warn");
+    expect(last?.note).toBe("stopped before it finished");
+  });
 });
