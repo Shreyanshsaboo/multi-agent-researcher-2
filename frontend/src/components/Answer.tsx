@@ -82,9 +82,12 @@ export function Answer({
           <p className="text-[15px] leading-relaxed text-ink">{view.result.message}</p>
         )}
 
-        {view.status === "failed" && !draft && (
+        {view.status === "failed" && (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-bad/30 bg-bad/5 px-4 py-3 text-sm">
-            <span className="text-ink-2">Something went wrong: {view.error ?? "the run failed"}.</span>
+            <span className="text-ink-2">
+              Something went wrong: {(view.error ?? "the run failed").replace(/\.$/, "")}.
+              {draft && " The draft below is unfinished and was not fact-checked."}
+            </span>
             <button onClick={onRetry} className="inline-flex items-center gap-1 font-medium text-ink underline underline-offset-4">
               <RotateCcw className="size-3.5" aria-hidden /> Try again
             </button>
