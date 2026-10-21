@@ -261,12 +261,12 @@ CI runs all of these on every push and pull request
 Most of the system was built in joint working sessions and committed from one account, so the
 commit history alone understates who did what. This table records each person's part.
 
-| Member | GitHub | Contributions |
-|---|---|---|
-| Shreyansh Saboo (roll no. TODO) | [@Shreyanshsaboo](https://github.com/Shreyanshsaboo) | TODO |
-| Raghav Dhoot (roll no. 23070122170) | [@dhootraghav](https://github.com/dhootraghav) | TODO |
-| TODO (roll no. TODO) | [@dhruvgupta0603](https://github.com/dhruvgupta0603) | TODO |
-| TODO (roll no. TODO) | [@sukaransingh123](https://github.com/sukaransingh123) | TODO |
+| Member | Roll no. | GitHub | Contributions |
+|---|---|---|---|
+| Shreyansh Suresh Saboo | 23070122205 | [@Shreyanshsaboo](https://github.com/Shreyanshsaboo) | TODO |
+| Sukaran Singh | 23070122213 | [@sukaransingh123](https://github.com/sukaransingh123) | TODO |
+| Raghav Dhoot | 23070122170 | [@dhootraghav](https://github.com/dhootraghav) | TODO |
+| Dhruv Gupta | 23070122258 | [@dhruvgupta0603](https://github.com/dhruvgupta0603) | TODO |
 
 ## License
 
