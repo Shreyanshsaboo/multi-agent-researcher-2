@@ -258,9 +258,6 @@ CI runs all of these on every push and pull request
 
 ## Team
 
-Most of the system was built in joint working sessions and committed from one account, so the
-commit history alone understates who did what. The table lists what that history shows.
-
 | Member | PRN | GitHub | Contributions |
 |---|---|---|---|
 | Shreyansh Suresh Saboo | 23070122205 | [@Shreyanshsaboo](https://github.com/Shreyanshsaboo) | The v1 prototype, then the six agents, orchestrator, rate-limit handling, SQLite store, API and live event stream, React frontend, Docker and Render deployment, CI, and the docs (PRs #1-#6 and #15 onward) |
